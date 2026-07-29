@@ -39,7 +39,7 @@ async function likeFood(req, res) {
     const user = req.user;
 
 
-    const like = await likeModel.create({
+    const isAlreadyLiked = await likeModel.findOne({
         user: user._id,
         food: foodId
     })

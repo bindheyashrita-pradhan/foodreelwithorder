@@ -20,4 +20,4 @@ const saveSchema = new mongoose.Schema({
 const saveModel = mongoose.model('save', saveSchema);
 
 
-moudule.exports = saveModel;
+module.exports = saveModel;
