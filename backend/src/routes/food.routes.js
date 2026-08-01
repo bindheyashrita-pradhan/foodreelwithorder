@@ -37,4 +37,10 @@ router.post('/save',
 
 
 
-module.exports = router;
+router.get('/save',
+    authMiddleware.authUserMiddleware,
+    foodController.getSaveFood
+    
+)
+
+module.exports = router
