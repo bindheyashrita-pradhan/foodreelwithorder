@@ -1,15 +1,11 @@
 import React, { useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 
-// Reusable feed for vertical reels
-// Props:
-// - items: Array of video items { _id, video, description, likeCount, savesCount, commentsCount, comments, foodPartner }
-// - onLike: (item) => void | Promise<void>
-// - onSave: (item) => void | Promise<void>
-// - emptyMessage: string
+// Reusable vertical reels feed component
 const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' }) => {
   const videoRefs = useRef(new Map())
 
+  // Set up the IntersectionObserver to handle scroll-autoplay
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
@@ -25,13 +21,15 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
       },
       { threshold: [0, 0.25, 0.6, 0.9, 1] }
     )
-
     videoRefs.current.forEach((vid) => observer.observe(vid))
     return () => observer.disconnect()
   }, [items])
 
   const setVideoRef = (id) => (el) => {
-    if (!el) { videoRefs.current.delete(id); return }
+    if (!el) {
+      videoRefs.current.delete(id);
+      return
+    }
     videoRefs.current.set(id, el)
   }
 
@@ -43,26 +41,25 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
             <p>{emptyMessage}</p>
           </div>
         )}
-
         {items.map((item) => (
           <section key={item._id} className="reel" role="listitem">
-            <video
-              ref={setVideoRef(item._id)}
-              className="reel-video"
-              src={item.video}
-              muted
-              playsInline
-              loop
-              preload="metadata"
+            <video 
+              ref={setVideoRef(item._id)} 
+              className="reel-video" 
+              src={item.video} 
+              muted 
+              playsInline 
+              loop 
+              preload="metadata" 
             />
-
             <div className="reel-overlay">
               <div className="reel-overlay-gradient" aria-hidden="true" />
               <div className="reel-actions">
+                {/* Like Button */}
                 <div className="reel-action-group">
-                  <button
-                    onClick={onLike ? () => onLike(item) : undefined}
-                    className="reel-action"
+                  <button 
+                    onClick={onLike ? () => onLike(item) : undefined} 
+                    className="reel-action" 
                     aria-label="Like"
                   >
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -72,19 +69,22 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
                   <div className="reel-action__count">{item.likeCount ?? item.likesCount ?? item.likes ?? 0}</div>
                 </div>
 
+                {/* Bookmark/Save Button */}
                 <div className="reel-action-group">
-                  <button
-                    className="reel-action"
-                    onClick={onSave ? () => onSave(item) : undefined}
+                  <button 
+                    className="reel-action" 
+                    onClick={onSave ? () => onSave(item) : undefined} 
                     aria-label="Bookmark"
                   >
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4-7 4V4a1 1 0 0 1 1-1z" />
                     </svg>
                   </button>
-                  <div className="reel-action__count">{item.saveCount ?? item.bookmarks ?? item.saves ?? 0}</div>
+                  {/* Fixed to read saveCount from MongoDB */}
+                  <div className="reel-action__count">{item.saveCount ?? item.savesCount ?? item.bookmarks ?? item.saves ?? 0}</div>
                 </div>
 
+                {/* Comments Button */}
                 <div className="reel-action-group">
                   <button className="reel-action" aria-label="Comments">
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -95,6 +95,7 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
                 </div>
               </div>
 
+              {/* Reel Content Details */}
               <div className="reel-content">
                 <p className="reel-description" title={item.description}>{item.description}</p>
                 {item.foodPartner && (
