@@ -12,7 +12,7 @@ const Profile = () => {
         axios.get(`http://localhost:3000/api/food-partner/${id}`, { withCredentials: true })
             .then(response => {
                 setProfile(response.data.foodPartner)
-                setVideos(response.data.foodPartner.foodItems)
+                setVideos(response.data.foodPartner.fooditems)
             })
     }, [ id ])
 
@@ -50,7 +50,7 @@ const Profile = () => {
 
             <section className="profile-grid" aria-label="Videos">
                 {videos.map((v) => (
-                    <div key={v.id} className="profile-grid-item">
+                    <div key={v._id} className="profile-grid-item">
                         {/* Placeholder tile; replace with <video> or <img> as needed */}
 
 

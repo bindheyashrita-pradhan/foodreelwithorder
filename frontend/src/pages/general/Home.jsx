@@ -34,7 +34,7 @@ const Home = () => {
         
     }
 
-    async function saveVideo(item) {
+    async function saveCount(item) {
         const response = await axios.post("http://localhost:3000/api/food/save", { foodId: item._id }, { withCredentials: true })
         
         if(response.data.save){

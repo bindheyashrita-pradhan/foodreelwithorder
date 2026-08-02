@@ -82,7 +82,7 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
                       <path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4-7 4V4a1 1 0 0 1 1-1z" />
                     </svg>
                   </button>
-                  <div className="reel-action__count">{item.savesCount ?? item.bookmarks ?? item.saves ?? 0}</div>
+                  <div className="reel-action__count">{item.saveCount ?? item.bookmarks ?? item.saves ?? 0}</div>
                 </div>
 
                 <div className="reel-action-group">
