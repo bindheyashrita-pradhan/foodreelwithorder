@@ -1,0 +1,93 @@
+.top-navbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.8) 0%, rgba(0, 0, 0, 0) 100%);
+  z-index: 1000;
+  box-sizing: border-box;
+}
+
+.nav-brand a {
+  color: #ffffff;
+  font-size: 1.1rem;
+  font-weight: 700;
+  text-decoration: none;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
+}
+
+.user-info-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.role-tag {
+  font-size: 0.65rem;
+  padding: 2px 7px;
+  border-radius: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.user-tag {
+  background-color: #2563eb;
+  color: #ffffff;
+}
+
+.partner-tag {
+  background-color: #eab308;
+  color: #000000;
+}
+
+.user-display-name {
+  color: #ffffff;
+  font-size: 0.8rem;
+  font-weight: 500;
+  max-width: 110px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+}
+
+.nav-logout-btn {
+  background: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  backdrop-filter: blur(4px);
+}
+
+.nav-logout-btn:hover {
+  background: rgba(255, 77, 77, 0.8);
+}
+
+.nav-login-links {
+  display: flex;
+  gap: 8px;
+}
+
+.nav-link-btn {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.2);
+  text-decoration: none;
+  font-size: 0.75rem;
+  padding: 4px 8px;
+  border-radius: 6px;
+  backdrop-filter: blur(4px);
+}
+
+.nav-link-btn.partner {
+  background: rgba(234, 179, 8, 0.85);
+  color: #000000;
+  font-weight: 600;
+}

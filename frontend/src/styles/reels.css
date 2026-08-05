@@ -3,7 +3,7 @@
 /* Page container ensures full viewport and background */
 .reels-page {
   height: 100dvh;
-  background: var(--color-bg);
+  background: var(--color-bg, #000);
   overflow: hidden; /* parent hides overscroll glow on iOS */
 }
 
@@ -46,107 +46,173 @@
   pointer-events: none; /* allow click-through except controls */
 }
 
-/* Subtle top-to-bottom gradient so text is readable on any video */
+/* Darker top-to-bottom gradient for video readability */
 .reel-overlay-gradient {
   position: absolute;
   inset: 0;
   background: linear-gradient(180deg,
-    rgba(0,0,0,0.25) 0%,
-    rgba(0,0,0,0.05) 30%,
-    rgba(0,0,0,0.35) 65%,
-    rgba(0,0,0,0.65) 100%
+    rgba(0, 0, 0, 0.4) 0%,
+    rgba(0, 0, 0, 0.05) 35%,
+    rgba(0, 0, 0, 0.45) 70%,
+    rgba(0, 0, 0, 0.85) 100%
   );
 }
 
 .reel-content {
   position: relative;
   width: 100%;
-  padding: var(--space-6);
-  padding-bottom: calc(env(safe-area-inset-bottom, 0) + 72px); /* make space for bottom nav */
+  padding: 16px;
+  /* Elevate text and button above the bottom navigation bar */
+  padding-bottom: calc(env(safe-area-inset-bottom, 0) + 76px);
   display: flex;
   flex-direction: column;
   padding-right: 4.5rem;
-  gap: var(--space-4);
+  gap: 12px;
   pointer-events: auto; /* enable button click */
+  z-index: 10;
 }
 
-/* Truncated to two lines */
+/* Truncated description text with high contrast */
 .reel-description {
-  color: #fff;
-  text-shadow: 0 1px 2px rgba(0,0,0,.4);
-  font-size: 1rem;
-  line-height: 1.3;
+  color: #ffffff;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.9);
+  font-size: 0.95rem;
+  font-weight: 500;
+  line-height: 1.35;
   display: -webkit-box;
   line-clamp: 2;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
   max-width: 90ch;
+  margin: 0;
 }
 
-.reel-btn {
+/* Modern "Visit Store" Pill Button */
+.visit-store-btn {
   align-self: flex-start;
-  background: var(--color-accent);
-  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 18px;
   border-radius: 999px;
-  padding: 10px 16px;
+  background: linear-gradient(135deg, #ff385c 0%, #e01e5a 100%);
+  color: #ffffff !important;
+  font-size: 0.85rem;
   font-weight: 700;
-  letter-spacing: .3px;
+  letter-spacing: 0.3px;
   text-decoration: none;
-  box-shadow: var(--shadow-md);
-  transition: transform var(--transition-base), background var(--transition-base), box-shadow var(--transition-base);
+  box-shadow: 0 4px 14px rgba(255, 56, 92, 0.45);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), background 0.2s, box-shadow 0.2s;
 }
 
-.reel-btn:hover { background: var(--color-accent-hover); }
-.reel-btn:active { transform: translateY(1px); }
-.reel-btn:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+.visit-store-btn:hover {
+  background: linear-gradient(135deg, #ff4d6d 0%, #e01e5a 100%);
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 6px 18px rgba(255, 56, 92, 0.6);
+}
 
-/* Desktop tweaks */
-@media (min-width: 768px) {
-  .reel-content { padding: 36px; }
-  .reel-description { font-size: 1.05rem; max-width: 70ch; }
+.visit-store-btn:active {
+  transform: translateY(0) scale(0.98);
+}
+
+.visit-store-btn:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 3px;
+}
+
+.visit-store-btn svg {
+  stroke: #ffffff;
 }
 
 /* Right-side vertical actions (like, bookmark, comments) */
 .reel-actions {
   position: absolute;
-  right: 10px;
-  bottom: 96px; /* above bottom CTA and nav */
+  right: 12px;
+  bottom: 84px; /* positioned above bottom nav bar */
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 16px;
   pointer-events: auto;
+  z-index: 10;
 }
 
-.reel-action {
-  width: 48px;
-  height: 48px;
-  border-radius: 999px;
-  display: grid;
-  place-items: center;
-  background: color-mix(in srgb, #000 35%, transparent);
-  backdrop-filter: blur(2px);
-  color: #fff;
-  border: 1px solid rgba(255,255,255,.15);
-  box-shadow: var(--shadow-md);
-}
-
-.reel-action:active { transform: translateY(1px); }
-
-.reel-action__count {
-  color: #fff;
-  text-align: center;
-  font-size: 12px;
-}
-
-.reel-action-group{
+.reel-action-group {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 4px;
-  color: #fff;
+  color: #ffffff;
 }
 
-.empty-state{
-  position: absolute; inset: 0; display: grid; place-items: center; color: #fff;
+.reel-action {
+  width: 46px;
+  height: 46px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+  transition: transform 0.15s ease, background 0.2s;
+}
+
+.reel-action:hover {
+  background: rgba(0, 0, 0, 0.65);
+}
+
+.reel-action:active {
+  transform: scale(0.92);
+}
+
+.reel-action__count {
+  color: #ffffff;
+  text-align: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+}
+
+.empty-state {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: #ffffff;
+  font-size: 1rem;
+}
+
+/* Desktop tweaks */
+@media (min-width: 768px) {
+  .reel-content {
+    padding: 28px 36px;
+    padding-bottom: 84px;
+  }
+  
+  .reel-description {
+    font-size: 1.05rem;
+    max-width: 70ch;
+  }
+
+  .reel-actions {
+    right: 20px;
+    bottom: 90px;
+  }
+}
+
+
+.sound-btn {
+  background: rgba(255, 56, 92, 0.25) !important;
+  border-color: rgba(255, 56, 92, 0.5) !important;
+}
+
+.sound-btn:hover {
+  background: rgba(255, 56, 92, 0.5) !important;
 }

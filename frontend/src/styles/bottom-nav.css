@@ -1,43 +1,85 @@
-@import './theme.css';
-
+/* Fixed bottom navigation container */
 .bottom-nav {
   position: fixed;
-  left: 0; right: 0; bottom: 0;
-  height: 56px;
-   background: color-mix(in srgb, #000 35%, transparent);
-  backdrop-filter: blur(2px);
-  color: #fff;
-  border: 1px solid rgba(255,255,255,.15);
-  box-shadow: var(--shadow-md);
-  border-top: 1px solid var(--color-border);
-  z-index: 50;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 60px;
+  /* 1. Remove white border/line completely */
+  border-top: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+
+  /* 2. Dark semi-transparent background for high contrast over video */
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.2) 0%, rgba(0, 0, 0, 0.95) 100%);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+
+  z-index: 1000;
+  box-sizing: border-box;
 }
 
 .bottom-nav__inner {
-  max-width: 720px;
+  max-width: 500px;
   margin: 0 auto;
   height: 100%;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
 }
 
+/* Base item styling */
 .bottom-nav__item {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  color: var(--color-text-secondary);
   text-decoration: none;
-  gap: 2px;
+  color: rgba(255, 255, 255, 0.65);
+  gap: 3px;
+  transition: all 0.2s ease-in-out;
+  padding: 4px 16px;
+  border: none !important;
+  outline: none !important;
 }
 
-.bottom-nav__item.is-active { color: var(--color-text); }
+.bottom-nav__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 
-.bottom-nav__icon { line-height: 0; }
+.bottom-nav__icon svg {
+  stroke: rgba(255, 255, 255, 0.65);
+  filter: drop-shadow(0px 1px 3px rgba(0, 0, 0, 0.8));
+  transition: all 0.2s ease-in-out;
+}
 
-.bottom-nav__label { font-size: 12px; }
+.bottom-nav__label {
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.2px;
+  text-shadow: 0px 1px 3px rgba(0, 0, 0, 0.9);
+}
 
-/* Safe area for iOS */
-@supports(padding: max(0px)) {
-  .bottom-nav { padding-bottom: max(env(safe-area-inset-bottom), 0px); }
+/* Hover state */
+.bottom-nav__item:hover .bottom-nav__label,
+.bottom-nav__item:hover .bottom-nav__icon svg {
+  color: #ffffff;
+  stroke: #ffffff;
+}
+
+/* Active tab state (is-active) */
+.bottom-nav__item.is-active {
+  color: #ffffff;
+}
+
+.bottom-nav__item.is-active .bottom-nav__label {
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.bottom-nav__item.is-active .bottom-nav__icon svg {
+  stroke: #ff385c; /* Accent color for active icon */
+  filter: drop-shadow(0px 2px 6px rgba(255, 56, 92, 0.6));
 }

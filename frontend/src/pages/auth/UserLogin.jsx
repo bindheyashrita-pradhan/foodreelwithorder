@@ -13,15 +13,24 @@ const UserLogin = () => {
     const email = e.target.email.value;
     const password = e.target.password.value;
 
-    const response = await axios.post("http://localhost:3000/api/auth/user/login", {
-      email,
-      password
-    }, { withCredentials: true });
+    try {
+      const response = await axios.post("http://localhost:3000/api/auth/user/login", {
+        email,
+        password
+      }, { withCredentials: true });
 
-    console.log(response.data);
+      console.log(response.data);
 
-    navigate("/"); // Redirect to home after login
+      // 🟢 SAVES USER DETAILS FOR NAVBAR RIGHT HERE
+      if (response.data.user) {
+        localStorage.setItem('user', JSON.stringify(response.data.user));
+        localStorage.setItem('userType', 'user');
+      }
 
+      navigate("/"); // Redirect to home after login
+    } catch (error) {
+      console.error("Login failed:", error.response?.data || error.message);
+    }
   };
 
   return (
