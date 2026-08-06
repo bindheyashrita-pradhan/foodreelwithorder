@@ -1,9 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
+import CommentModal from './CommentModal'
 
 const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' }) => {
   const videoRefs = useRef(new Map())
-  const [isMuted, setIsMuted] = useState(true) // Default muted due to browser autoplay policies
+  const [isMuted, setIsMuted] = useState(true)
+  const [activeCommentFoodId, setActiveCommentFoodId] = useState(null)
+  const [commentCounts, setCommentCounts] = useState({})
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -12,7 +15,7 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
           const video = entry.target
           if (!(video instanceof HTMLVideoElement)) return
           if (entry.isIntersecting && entry.intersectionRatio >= 0.6) {
-            video.muted = isMuted // Sync current mute state
+            video.muted = isMuted
             video.play().catch(() => { /* ignore autoplay errors */ })
           } else {
             video.pause()
@@ -33,13 +36,20 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
     videoRefs.current.set(id, el)
   }
 
-  // Toggle mute state for all videos
   const toggleMute = () => {
     const nextMuteState = !isMuted
     setIsMuted(nextMuteState)
     videoRefs.current.forEach((vid) => {
       if (vid) vid.muted = nextMuteState
     })
+  }
+
+  // Increment local counter when a new comment is submitted
+  const handleCommentAdded = (foodId) => {
+    setCommentCounts((prev) => ({
+      ...prev,
+      [foodId]: (prev[foodId] ?? 0) + 1
+    }))
   }
 
   return (
@@ -54,6 +64,9 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
           const partnerId = typeof item.foodPartner === 'object' && item.foodPartner !== null 
             ? item.foodPartner._id 
             : item.foodPartner;
+
+          const baseCommentCount = item.commentsCount ?? (Array.isArray(item.comments) ? item.comments.length : 0);
+          const currentCommentCount = baseCommentCount + (commentCounts[item._id] || 0);
 
           return (
             <section key={item._id} className="reel" role="listitem">
@@ -74,12 +87,14 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
                   {/* Sound Toggle Button */}
                   <div className="reel-action-group">
                     <button 
-                      onClick={toggleMute} 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleMute();
+                      }} 
                       className="reel-action sound-btn" 
                       aria-label={isMuted ? "Unmute" : "Mute"}
                     >
                       {isMuted ? (
-                        /* Muted Icon */
                         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                           <line x1="1" y1="1" x2="23" y2="23"></line>
                           <path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"></path>
@@ -88,7 +103,6 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
                           <line x1="8" y1="23" x2="16" y2="23"></line>
                         </svg>
                       ) : (
-                        /* Unmuted / Volume High Icon */
                         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                           <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
                           <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
@@ -101,7 +115,10 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
                   {/* Like Button */}
                   <div className="reel-action-group">
                     <button 
-                      onClick={onLike ? () => onLike(item) : undefined} 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (onLike) onLike(item);
+                      }} 
                       className="reel-action" 
                       aria-label="Like"
                     >
@@ -116,7 +133,10 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
                   <div className="reel-action-group">
                     <button 
                       className="reel-action" 
-                      onClick={onSave ? () => onSave(item) : undefined} 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (onSave) onSave(item);
+                      }} 
                       aria-label="Bookmark"
                     >
                       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -128,12 +148,20 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
 
                   {/* Comments Button */}
                   <div className="reel-action-group">
-                    <button className="reel-action" aria-label="Comments">
+                    <button 
+                      className="reel-action" 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        console.log("Opening comment modal for ID:", item._id);
+                        setActiveCommentFoodId(item._id);
+                      }} 
+                      aria-label="Comments"
+                    >
                       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z" />
                       </svg>
                     </button>
-                    <div className="reel-action__count">{item.commentsCount ?? (Array.isArray(item.comments) ? item.comments.length : 0)}</div>
+                    <div className="reel-action__count">{currentCommentCount}</div>
                   </div>
                 </div>
 
@@ -157,6 +185,15 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
           )
         })}
       </div>
+
+      {/* Render Slide-Up Comment Modal */}
+      {activeCommentFoodId && (
+        <CommentModal 
+          foodId={activeCommentFoodId} 
+          onClose={() => setActiveCommentFoodId(null)}
+          onCommentAdded={handleCommentAdded}
+        />
+      )}
     </div>
   )
 }
