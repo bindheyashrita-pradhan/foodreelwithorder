@@ -13,7 +13,7 @@ app.use(cors({
     origin: [
         "http://localhost:5173", 
         "http://localhost:3000",
-        // Add your frontend online URL here when you deploy to Netlify/Vercel
+        "https://jovial-puppy-be22b0.netlify.app" // ✅ Added live Netlify frontend domain
     ],
     credentials: true
 }));

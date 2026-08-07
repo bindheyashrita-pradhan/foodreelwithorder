@@ -1,5 +1,5 @@
 const userModel = require("../models/user.model");
-const foodPartnerModel = require("../models/food-partner.model");
+const foodPartnerModel = require("../models/foodpartner.model"); // Fixed: removed hyphen (-) to match foodpartner.model.js
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
