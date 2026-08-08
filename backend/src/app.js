@@ -8,12 +8,15 @@ const cors = require('cors');
 
 const app = express();
 
+// Required on platforms like Render so secure cookies work behind reverse proxies
+app.set("trust proxy", 1);
+
 // Configure CORS to accept requests from both local and deployed frontend
 app.use(cors({
     origin: [
         "http://localhost:5173", 
         "http://localhost:3000",
-        "https://jovial-puppy-be22b0.netlify.app" // ✅ Added live Netlify frontend domain
+        "https://jovial-puppy-be22b0.netlify.app"
     ],
     credentials: true
 }));
