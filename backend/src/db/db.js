@@ -1,29 +1,19 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
-function connectDB() {
-  // 1. Connect to Local MongoDB
-  const localDb = mongoose.createConnection(process.env.LOCAL_MONGODB_URI);
+const connectDB = async () => {
+  try {
+    const uri = process.env.CLOUD_MONGODB_URI || process.env.LOCAL_MONGODB_URI;
 
-  localDb.on('connected', () => {
-    console.log('🟢 Connected to LOCAL MongoDB');
-  });
+    if (!uri) {
+      throw new Error("No MongoDB connection URI found in environment variables.");
+    }
 
-  localDb.on('error', (err) => {
-    console.error('🔴 Local MongoDB connection error:', err);
-  });
+    const conn = await mongoose.connect(uri);
+    console.log(`🟢 Connected to MongoDB: ${conn.connection.host}`);
+  } catch (error) {
+    console.error(`🔴 MongoDB Connection Error: ${error.message}`);
+    process.exit(1);
+  }
+};
 
-  // 2. Connect to Cloud MongoDB Atlas
-  const cloudDb = mongoose.createConnection(process.env.CLOUD_MONGODB_URI);
-
-  cloudDb.on('connected', () => {
-    console.log('☁️ Connected to CLOUD MongoDB Atlas');
-  });
-
-  cloudDb.on('error', (err) => {
-    console.error('🔴 Cloud MongoDB connection error:', err);
-  });
-
-  return { localDb, cloudDb };
-}
-
-module.exports = connectDB;
+export default connectDB;
