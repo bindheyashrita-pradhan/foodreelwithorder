@@ -19,7 +19,7 @@ const CommentModal = ({ foodId, onClose, onCommentAdded }) => {
       try {
         setLoading(true);
         const response = await axios.get(
-          `http://localhost:3000/api/food/${foodId}/comments`,
+          `${import.meta.env.VITE_API_URL}/api/food/${foodId}/comments`,
           { withCredentials: true }
         );
         setComments(response.data.comments || []);
@@ -43,7 +43,7 @@ const CommentModal = ({ foodId, onClose, onCommentAdded }) => {
       setSubmitting(true);
       setError('');
       const response = await axios.post(
-        `http://localhost:3000/api/food/${foodId}/comment`,
+        `${import.meta.env.VITE_API_URL}/api/food/${foodId}/comment`,
         { text: newComment },
         { withCredentials: true }
       );
@@ -75,7 +75,7 @@ const CommentModal = ({ foodId, onClose, onCommentAdded }) => {
 
     try {
       const response = await axios.put(
-        `http://localhost:3000/api/food/comment/${commentId}`,
+        `${import.meta.env.VITE_API_URL}/api/food/comment/${commentId}`,
         { text: editText },
         { withCredentials: true }
       );
@@ -98,7 +98,7 @@ const CommentModal = ({ foodId, onClose, onCommentAdded }) => {
 
     try {
       await axios.delete(
-        `http://localhost:3000/api/food/comment/${commentId}`,
+        `${import.meta.env.VITE_API_URL}/api/food/comment/${commentId}`,
         { withCredentials: true }
       );
 

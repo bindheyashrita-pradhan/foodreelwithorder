@@ -52,6 +52,16 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
     }))
   }
 
+  // Helper to ensure video URLs point to your live Render backend if they are relative paths
+  const getVideoSrc = (videoPath) => {
+    if (!videoPath) return ''
+    if (videoPath.startsWith('http://') || videoPath.startsWith('https://')) {
+      return videoPath
+    }
+    const baseUrl = import.meta.env.VITE_API_URL || ''
+    return `${baseUrl}${videoPath.startsWith('/') ? '' : '/'}${videoPath}`
+  }
+
   return (
     <div className="reels-page">
       <div className="reels-feed" role="list">
@@ -73,7 +83,7 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
               <video 
                 ref={setVideoRef(item._id)} 
                 className="reel-video" 
-                src={item.video} 
+                src={getVideoSrc(item.video)} 
                 muted={isMuted}
                 playsInline 
                 loop 

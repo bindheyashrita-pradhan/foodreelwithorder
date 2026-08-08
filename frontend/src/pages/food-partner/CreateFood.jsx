@@ -56,14 +56,16 @@ const CreateFood = () => {
         formData.append('description', description);
         formData.append("video", videoFile);
 
-        const response = await axios.post("http://localhost:3000/api/food", formData, {
-            withCredentials: true,
-        })
+        try {
+            const response = await axios.post(`${import.meta.env.VITE_API_URL}/api/food`, formData, {
+                withCredentials: true,
+            });
 
-        console.log(response.data);
-        navigate("/"); // Redirect to home or another page after successful creation
-        // Optionally reset
-        // setName(''); setDescription(''); setVideoFile(null);
+            console.log(response.data);
+            navigate("/"); // Redirect to home after successful creation
+        } catch (error) {
+            console.error("Create food failed:", error.response?.data || error.message);
+        }
     };
 
     const isDisabled = useMemo(() => !name.trim() || !videoFile, [ name, videoFile ]);

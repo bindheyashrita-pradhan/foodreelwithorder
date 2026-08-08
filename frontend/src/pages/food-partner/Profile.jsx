@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react' // Fixed: Removed unused 'use' import
+import React, { useState, useEffect } from 'react'
 import '../../styles/profile.css'
 import { useParams } from 'react-router-dom'
 import axios from 'axios'
@@ -9,16 +9,25 @@ const Profile = () => {
   const [ videos, setVideos ] = useState([])
 
   useEffect(() => {
-    axios.get(`http://localhost:3000/api/food-partner/${id}`, { withCredentials: true })
+    axios.get(`${import.meta.env.VITE_API_URL}/api/food-partner/${id}`, { withCredentials: true })
       .then(response => {
         setProfile(response.data.foodPartner)
-        // Fixed: Changed foodItems to fooditems to match your backend controller key
-        setVideos(response.data.foodPartner.fooditems || []) 
+        setVideos(response.data.foodPartner?.fooditems || response.data.foodPartner?.foodItems || []) 
       })
       .catch((err) => {
         console.error("Error fetching profile:", err)
       })
   }, [ id ])
+
+  // Helper to ensure video URLs point to your live Render backend if they are relative paths
+  const getVideoSrc = (videoPath) => {
+    if (!videoPath) return ''
+    if (videoPath.startsWith('http://') || videoPath.startsWith('https://')) {
+      return videoPath
+    }
+    const baseUrl = import.meta.env.VITE_API_URL || ''
+    return `${baseUrl}${videoPath.startsWith('/') ? '' : '/'}${videoPath}`
+  }
 
   return (
     <main className="profile-page">
@@ -48,12 +57,11 @@ const Profile = () => {
       <hr className="profile-sep" />
       <section className="profile-grid" aria-label="Videos">
         {videos.map((v) => (
-          // Fixed: Changed key and lookup to v._id to align with MongoDB IDs
           <div key={v._id} className="profile-grid-item">
             <video 
               className="profile-grid-video" 
               style={{ objectFit: 'cover', width: '100%', height: '100%' }} 
-              src={v.video} 
+              src={getVideoSrc(v.video)} 
               muted 
               playsInline
               preload="metadata"

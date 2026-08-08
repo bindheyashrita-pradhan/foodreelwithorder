@@ -16,20 +16,21 @@ const UserRegister = () => {
         const email = e.target.email.value;
         const password = e.target.password.value;
 
+        try {
+            const response = await axios.post(`${import.meta.env.VITE_API_URL}/api/auth/user/register`, {
+                fullName: firstName + " " + lastName,
+                email,
+                password
+            },
+            {
+                withCredentials: true
+            });
 
-        const response = await axios.post("http://localhost:3000/api/auth/user/register", {
-            fullName: firstName + " " + lastName,
-            email,
-            password
-        },
-        {
-            withCredentials: true
-        })
-
-        console.log(response.data);
-
-        navigate("/")
-
+            console.log(response.data);
+            navigate("/");
+        } catch (error) {
+            console.error("Registration failed:", error.response?.data || error.message);
+        }
     };
 
     return (
