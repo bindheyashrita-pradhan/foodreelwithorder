@@ -14,7 +14,8 @@ const foodSchema = new mongoose.Schema({
     },
     foodPartner: {
         type: mongoose.Schema.Types.ObjectId,
-        ref:"foodPartner"
+        ref: "foodPartner",
+        required: true
     },
     likeCount: {
         type: Number,
@@ -23,12 +24,25 @@ const foodSchema = new mongoose.Schema({
     saveCount: {
         type: Number,
         default: 0
-    }
-})
+    },
 
+    // NEW FIELDS FOR PRICING & QUANTITY
+    price: { 
+        type: Number, 
+        required: true 
+    }, // Base Price (e.g. for Regular/Medium)
+    category: { 
+        type: String, 
+        enum: ['Veg', 'Non-Veg', 'Vegan', 'Beverage'], 
+        default: 'Veg' 
+    },
+    portions: {
+        small: { type: Number, default: 0 },
+        medium: { type: Number, default: 0 },
+        large: { type: Number, default: 0 }
+    }
+}, { timestamps: true });
 
 const foodModel = mongoose.model("food", foodSchema);
 
-
 module.exports = foodModel;
-

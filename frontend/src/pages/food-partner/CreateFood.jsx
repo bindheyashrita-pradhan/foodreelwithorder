@@ -6,6 +6,11 @@ import { useNavigate } from 'react-router-dom';
 const CreateFood = () => {
     const [ name, setName ] = useState('');
     const [ description, setDescription ] = useState('');
+    const [ price, setPrice ] = useState('');
+    const [ category, setCategory ] = useState('Veg');
+    const [ smallPrice, setSmallPrice ] = useState('');
+    const [ mediumPrice, setMediumPrice ] = useState('');
+    const [ largePrice, setLargePrice ] = useState('');
     const [ videoFile, setVideoFile ] = useState(null);
     const [ videoURL, setVideoURL ] = useState('');
     const [ fileError, setFileError ] = useState('');
@@ -54,7 +59,18 @@ const CreateFood = () => {
 
         formData.append('name', name);
         formData.append('description', description);
+        formData.append('price', Number(price));
+        formData.append('category', category);
         formData.append("video", videoFile);
+
+        // Package portion pricing object
+        const portions = {
+            small: Number(smallPrice) || Math.round(Number(price) * 0.8),
+            medium: Number(mediumPrice) || Number(price),
+            large: Number(largePrice) || Math.round(Number(price) * 1.3)
+        };
+
+        formData.append('portions', JSON.stringify(portions));
 
         try {
             const response = await axios.post(`${import.meta.env.VITE_API_URL}/api/food`, formData, {
@@ -68,14 +84,14 @@ const CreateFood = () => {
         }
     };
 
-    const isDisabled = useMemo(() => !name.trim() || !videoFile, [ name, videoFile ]);
+    const isDisabled = useMemo(() => !name.trim() || !price || !videoFile, [ name, price, videoFile ]);
 
     return (
         <div className="create-food-page">
             <div className="create-food-card">
                 <header className="create-food-header">
                     <h1 className="create-food-title">Create Food</h1>
-                    <p className="create-food-subtitle">Upload a short video, give it a name, and add a description.</p>
+                    <p className="create-food-subtitle">Upload a short video, give it a name, set pricing, and add a description.</p>
                 </header>
 
                 <form className="create-food-form" onSubmit={onSubmit}>
@@ -135,7 +151,7 @@ const CreateFood = () => {
                     )}
 
                     <div className="field-group">
-                        <label htmlFor="foodName">Name</label>
+                        <label htmlFor="foodName">Name *</label>
                         <input
                             id="foodName"
                             type="text"
@@ -144,6 +160,67 @@ const CreateFood = () => {
                             onChange={(e) => setName(e.target.value)}
                             required
                         />
+                    </div>
+
+                    {/* NEW: Base Price & Category Row */}
+                    <div style={{ display: 'flex', gap: '12px' }}>
+                        <div className="field-group" style={{ flex: 1 }}>
+                            <label htmlFor="foodPrice">Base Price (₹) *</label>
+                            <input
+                                id="foodPrice"
+                                type="number"
+                                placeholder="e.g., 199"
+                                min="1"
+                                value={price}
+                                onChange={(e) => setPrice(e.target.value)}
+                                required
+                            />
+                        </div>
+
+                        <div className="field-group" style={{ flex: 1 }}>
+                            <label htmlFor="foodCategory">Category</label>
+                            <select
+                                id="foodCategory"
+                                value={category}
+                                onChange={(e) => setCategory(e.target.value)}
+                                style={{ padding: '10px', borderRadius: '8px', border: '1px solid #ccc', fontSize: '14px', background: '#fff' }}
+                            >
+                                <option value="Veg">🟢 Veg</option>
+                                <option value="Non-Veg">🔴 Non-Veg</option>
+                                <option value="Vegan">🌱 Vegan</option>
+                                <option value="Beverage">🥤 Beverage</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    {/* NEW: Custom Portion Prices Section */}
+                    <div className="field-group" style={{ background: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                        <label style={{ fontWeight: 'bold', fontSize: '13px', display: 'block', marginBottom: '6px' }}>
+                            Portion Prices (Optional)
+                        </label>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                            <input
+                                type="number"
+                                placeholder="Small ₹"
+                                value={smallPrice}
+                                onChange={(e) => setSmallPrice(e.target.value)}
+                                style={{ flex: 1, padding: '8px', borderRadius: '6px', border: '1px solid #ccc' }}
+                            />
+                            <input
+                                type="number"
+                                placeholder="Medium ₹"
+                                value={mediumPrice}
+                                onChange={(e) => setMediumPrice(e.target.value)}
+                                style={{ flex: 1, padding: '8px', borderRadius: '6px', border: '1px solid #ccc' }}
+                            />
+                            <input
+                                type="number"
+                                placeholder="Large ₹"
+                                value={largePrice}
+                                onChange={(e) => setLargePrice(e.target.value)}
+                                style={{ flex: 1, padding: '8px', borderRadius: '6px', border: '1px solid #ccc' }}
+                            />
+                        </div>
                     </div>
 
                     <div className="field-group">

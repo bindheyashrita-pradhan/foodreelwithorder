@@ -10,9 +10,27 @@ async function createFood(req, res) {
   try {
     const fileUploadResult = await storageService.uploadFile(req.file.buffer, `${uuid()}.mp4`);
 
+    // Safe handling for price and portions passed via FormData
+    const price = req.body.price ? Number(req.body.price) : 0;
+    const category = req.body.category || 'Veg';
+
+    let portions = { small: 0, medium: price, large: 0 };
+    if (req.body.portions) {
+      try {
+        portions = typeof req.body.portions === 'string' 
+          ? JSON.parse(req.body.portions) 
+          : req.body.portions;
+      } catch (e) {
+        console.warn("Portions parsing fallback:", e.message);
+      }
+    }
+
     const foodItem = await foodModel.create({
       name: req.body.name,
       description: req.body.description,
+      price: price,
+      category: category,
+      portions: portions,
       video: fileUploadResult.url,
       foodPartner: req.foodPartner._id
     });
@@ -28,24 +46,24 @@ async function createFood(req, res) {
 }
 
 async function getFoodItems(req, res) {
-try {
-  const rawFoodItems = await foodModel.find({});
+  try {
+    const rawFoodItems = await foodModel.find({});
 
-  const foodItems = await Promise.all(
-    rawFoodItems.map(async (item) => {
-      const doc = item.toObject();
-      const commentsCount = await commentModel.countDocuments({ food: item._id });
-      return {
-        ...doc,
-        commentsCount // Real-time comment count attached
-      };
-    })
-  );
+    const foodItems = await Promise.all(
+      rawFoodItems.map(async (item) => {
+        const doc = item.toObject();
+        const commentsCount = await commentModel.countDocuments({ food: item._id });
+        return {
+          ...doc,
+          commentsCount // Real-time comment count attached
+        };
+      })
+    );
 
-  res.status(200).json({
-    message: "Food items fetched successfully",
-    foodItems
-  });
+    res.status(200).json({
+      message: "Food items fetched successfully",
+      foodItems
+    });
   } catch (error) {
     console.error("Error fetching food items:", error);
     res.status(500).json({ message: error.message });
@@ -202,7 +220,6 @@ async function addComment(req, res) {
       text: text.trim()
     });
 
-    // 🟢 Increment comment count on the Food document
     await foodModel.findByIdAndUpdate(foodId, {
       $inc: { commentsCount: 1, commentCount: 1 }
     });
@@ -251,9 +268,6 @@ async function getComments(req, res) {
     res.status(500).json({ message: error.message || "Internal Server Error" });
   }
 }
-
-
-// Edit an existing comment (Only by comment owner)
 
 // Edit an existing comment
 async function editComment(req, res) {
@@ -335,7 +349,6 @@ async function deleteComment(req, res) {
     res.status(500).json({ message: error.message || "Internal Server Error" });
   }
 }
-
 
 module.exports = {
   createFood,
