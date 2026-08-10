@@ -16,7 +16,7 @@ app.use(cors({
     origin: [
         "http://localhost:5173", 
         "http://localhost:3000",
-        "https://jovial-puppy-be22b0.netlify.app"
+        "https://foodreelwithorder-frontend.netlify.app"
     ],
     credentials: true
 }));
