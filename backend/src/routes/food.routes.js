@@ -15,11 +15,8 @@ router.post('/',
     foodController.createFood
 );
 
-/* GET /api/food/ [protected for users] */
-router.get("/",
-    authMiddleware.authUserMiddleware,
-    foodController.getFoodItems
-);
+// Public route - anyone can see videos! ✅
+router.get('/', foodController.getFoodItems);
 
 /* POST /api/food/like */
 router.post('/like', 
