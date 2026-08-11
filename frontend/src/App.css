@@ -1,13 +1,14 @@
-/* Fix button clicks on the Reel overlay */
+/* Fix Reel Overlay Click Interception */
 .reel-overlay {
     pointer-events: none !important;
 }
 
-.reel-actions, 
-.reel-content, 
-.reel-action, 
+.reel-actions,
+.reel-content,
+.reel-action-group,
+.reel-action,
 .visit-store-btn {
     pointer-events: auto !important;
     position: relative !important;
-    z-index: 99 !important;
+    z-index: 9999 !important;
 }

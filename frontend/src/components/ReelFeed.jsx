@@ -46,7 +46,6 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
     })
   }
 
-  // Increment local counter when a new comment is submitted
   const handleCommentAdded = (foodId) => {
     setCommentCounts((prev) => ({
       ...prev,
@@ -54,7 +53,6 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
     }))
   }
 
-  // Helper to ensure video URLs point to your live Render backend if they are relative paths
   const getVideoSrc = (videoPath) => {
     if (!videoPath) return ''
     if (videoPath.startsWith('http://') || videoPath.startsWith('https://')) {
@@ -75,7 +73,7 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
         {items.map((item) => {
           const partnerId = typeof item.foodPartner === 'object' && item.foodPartner !== null 
             ? item.foodPartner._id 
-            : item.foodPartner;
+            : (item.foodPartner || item.partnerId);
 
           const baseCommentCount = item.commentsCount ?? (Array.isArray(item.comments) ? item.comments.length : 0);
           const currentCommentCount = baseCommentCount + (commentCounts[item._id] || 0);
@@ -95,7 +93,7 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
               <div className="reel-overlay" style={{ pointerEvents: 'none' }}>
                 <div className="reel-overlay-gradient" aria-hidden="true" />
                 
-                <div className="reel-actions" style={{ pointerEvents: 'auto', zIndex: 40 }}>
+                <div className="reel-actions" style={{ pointerEvents: 'auto', zIndex: 999 }}>
                   {/* Sound Toggle Button */}
                   <div className="reel-action-group">
                     <button 
@@ -125,13 +123,13 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
                   </div>
 
                   {/* Order Now Button */}
-                  <div className="reel-action-group" style={{ pointerEvents: 'auto', zIndex: 50 }}>
+                  <div className="reel-action-group" style={{ pointerEvents: 'auto', zIndex: 1000 }}>
                     <button 
                       type="button"
                       onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
-                        console.log("Order button clicked for item:", item);
+                        console.log("Order button tapped for item:", item);
                         setActiveOrderFood(item);
                       }} 
                       className="reel-action order-btn" 
@@ -187,7 +185,6 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
                       className="reel-action" 
                       onClick={(e) => {
                         e.stopPropagation();
-                        console.log("Opening comment modal for ID:", item._id);
                         setActiveCommentFoodId(item._id);
                       }} 
                       aria-label="Comments"
