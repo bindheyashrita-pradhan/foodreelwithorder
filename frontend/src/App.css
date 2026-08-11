@@ -1,11 +1,13 @@
-* {
-  margin: 0%;
-  padding: 0%;
-  box-sizing: border-box;
+/* Fix button clicks on the Reel overlay */
+.reel-overlay {
+    pointer-events: none !important;
 }
 
-html,
-body {
-  height: 100%;
-  width: 100%;
+.reel-actions, 
+.reel-content, 
+.reel-action, 
+.visit-store-btn {
+    pointer-events: auto !important;
+    position: relative !important;
+    z-index: 99 !important;
 }
