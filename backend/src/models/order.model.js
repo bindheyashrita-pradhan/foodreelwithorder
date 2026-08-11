@@ -1,5 +1,4 @@
-import mongoose from 'mongoose';
-
+const mongoose = require('mongoose');
 
 const orderSchema = new mongoose.Schema({
     user: {
@@ -14,28 +13,31 @@ const orderSchema = new mongoose.Schema({
     },
     foodPartner: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'foodPartner',
+        ref: 'foodpartner',
         required: true
     },
     portion: {
-        type: Number,
-        required: true  // e.g., "Half", "Full", "Per Plate"
+        type: String, // Fixed: Changed from Number to String for portion names
+        required: true
+    },
+    price: {
+        type: Number, // Added missing price field
+        required: true
     },
     quantity: {
         type: Number,
-        reuired: true
+        required: true, // Fixed: Corrected typo 'reuired'
+        default: 1
     },
     status: {
         type: String,
-        enum: [ 'Pending', 'Accepted', 'Rejected', 'Completed', 'cancelled'],
+        enum: ['Pending', 'Accepted', 'Rejected', 'Completed', 'cancelled'],
         default: 'Pending'
     },
     deliveryAddress: {
         type: String,
         required: true
     }
+}, { timestamps: true });
 
-},{ timestamps: true });
-
-
-export default mongoose.model('order', orderSchema);
+module.exports = mongoose.model('order', orderSchema);
