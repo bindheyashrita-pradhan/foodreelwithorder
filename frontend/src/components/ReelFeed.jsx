@@ -92,10 +92,10 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
                 preload="metadata"
                 onClick={toggleMute}
               />
-              <div className="reel-overlay">
+              <div className="reel-overlay" style={{ pointerEvents: 'none' }}>
                 <div className="reel-overlay-gradient" aria-hidden="true" />
                 
-                <div className="reel-actions">
+                <div className="reel-actions" style={{ pointerEvents: 'auto', zIndex: 40 }}>
                   {/* Sound Toggle Button */}
                   <div className="reel-action-group">
                     <button 
@@ -125,15 +125,18 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
                   </div>
 
                   {/* Order Now Button */}
-                  <div className="reel-action-group">
+                  <div className="reel-action-group" style={{ pointerEvents: 'auto', zIndex: 50 }}>
                     <button 
+                      type="button"
                       onClick={(e) => {
+                        e.preventDefault();
                         e.stopPropagation();
+                        console.log("Order button clicked for item:", item);
                         setActiveOrderFood(item);
                       }} 
                       className="reel-action order-btn" 
                       aria-label="Order Now"
-                      style={{ backgroundColor: '#eab308', color: '#000' }}
+                      style={{ backgroundColor: '#eab308', color: '#000', cursor: 'pointer', pointerEvents: 'auto' }}
                     >
                       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <circle cx="9" cy="21" r="1"></circle>
@@ -198,7 +201,7 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
                 </div>
 
                 {/* Reel Content Details */}
-                <div className="reel-content">
+                <div className="reel-content" style={{ pointerEvents: 'auto' }}>
                   <p className="reel-description" title={item.description}>{item.description}</p>
                   {partnerId && (
                     <Link className="visit-store-btn" to={"/food-partner/" + partnerId} aria-label="Visit store">
