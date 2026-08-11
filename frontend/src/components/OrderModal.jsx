@@ -1,194 +1,200 @@
-import React, { useState, useEffect } from 'react';
-import '../styles/comment-modal.css'; // Reuses modal styles
+import React, { useState } from 'react';
+import axios from 'axios';
 
-const OrderModal = ({ partner, foods = [], onClose }) => {
-  // 1. Get logged-in user from localStorage to auto-fill details
-  const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
-
-  const [selectedFood, setSelectedFood] = useState(foods[0] || null);
-  const [size, setSize] = useState('medium');
-  const [quantity, setQuantity] = useState(1);
-  const [address, setAddress] = useState('');
-  const [phone, setPhone] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState('COD');
-  const [orderPlaced, setOrderPlaced] = useState(false);
-
-  // Update selected portion/size whenever selected food item changes
-  useEffect(() => {
-    if (foods.length > 0 && !selectedFood) {
-      setSelectedFood(foods[0]);
-    }
-  }, [foods]);
-
-  // Calculate dynamic price based on the selected food item's portions or base price
-  const getUnitPrice = () => {
-    if (!selectedFood) return 0;
-    
-    // Check if the item has custom portion pricing defined
-    if (selectedFood.portions && selectedFood.portions[size]) {
-      return selectedFood.portions[size];
-    }
-    
-    // Fallback to base price or default calculation
-    const basePrice = selectedFood.price || 150;
-    if (size === 'small') return Math.round(basePrice * 0.8);
-    if (size === 'large') return Math.round(basePrice * 1.3);
-    return basePrice; // medium/regular
-  };
-
-  const unitPrice = getUnitPrice();
-  const totalPrice = unitPrice * quantity;
-
-  const handleSubmitOrder = (e) => {
-    e.preventDefault();
-    if (!address || !phone) {
-      alert("Please enter delivery address and phone number.");
-      return;
-    }
-
-    const orderData = {
-      partnerName: partner?.name,
-      foodName: selectedFood?.name,
-      category: selectedFood?.category || 'Veg',
-      size,
-      quantity,
-      unitPrice,
-      totalPrice,
-      customerName: storedUser.fullName || storedUser.name || 'Customer',
-      customerEmail: storedUser.email,
-      phone,
-      address,
-      paymentMethod
+const OrderModal = ({ foodItem, onClose }) => {
+    // 1. Extract food title or parse from description if title is blank
+    const getFoodName = () => {
+        if (foodItem?.name) return foodItem.name;
+        if (foodItem?.title) return foodItem.title;
+        if (foodItem?.foodName) return foodItem.foodName;
+        if (foodItem?.description) {
+            // Extract text before colon or first sentence
+            const parts = foodItem.description.split(':');
+            if (parts.length > 1) return parts[0].trim();
+        }
+        return 'Special Dish';
     };
 
-    console.log("Order Placed Successfully:", orderData);
-    setOrderPlaced(true);
-  };
+    const itemName = getFoodName();
 
-  return (
-    <div className="comment-modal-backdrop" onClick={onClose}>
-      <div className="comment-modal-content" onClick={(e) => e.stopPropagation()} style={{ maxHeight: '85vh', overflowY: 'auto', padding: '20px' }}>
-        
-        {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-          <h2 style={{ margin: 0, fontSize: '18px' }}>Order from {partner?.name}</h2>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer' }}>✕</button>
-        </div>
+    // 2. Portion choices
+    const portions = foodItem?.portions && foodItem.portions.length > 0 
+        ? foodItem.portions 
+        : [{ name: 'Medium / Reg', price: foodItem?.price || 150 }];
 
-        {orderPlaced ? (
-          /* Order Confirmation Screen */
-          <div style={{ textAlign: 'center', padding: '30px 10px' }}>
-            <h1 style={{ fontSize: '48px', margin: '0 0 10px 0' }}>🎉</h1>
-            <h3>Order Confirmed!</h3>
-            <p>Your order for <strong>{quantity}x {selectedFood?.name} ({size.toUpperCase()})</strong> has been placed with {partner?.name}.</p>
-            <p style={{ color: '#666', fontSize: '14px' }}>Total Amount: <strong>₹{totalPrice}</strong> ({paymentMethod})</p>
-            <button className="auth-submit" style={{ marginTop: '20px', padding: '10px 20px', background: '#2563eb', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' }} onClick={onClose}>
-              Back to Store
-            </button>
-          </div>
-        ) : (
-          /* Ordering Form */
-          <form onSubmit={handleSubmitOrder} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-            
-            {/* Step A: Select Food Item */}
-            <div>
-              <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px', fontSize: '14px' }}>Select Food Item</label>
-              <select 
-                value={selectedFood?._id || ''} 
-                onChange={(e) => setSelectedFood(foods.find(f => f._id === e.target.value))}
-                style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #ccc' }}
-              >
-                {foods.map((item) => (
-                  <option key={item._id} value={item._id}>
-                    {item.category === 'Non-Veg' ? '🔴' : '🟢'} {item.name} — ₹{item.price || 150}
-                  </option>
-                ))}
-              </select>
-            </div>
+    const [selectedPortion, setSelectedPortion] = useState(portions[0]);
+    const [quantity, setQuantity] = useState(1);
+    const [phone, setPhone] = useState('');
+    const [address, setAddress] = useState('');
+    const [loading, setLoading] = useState(false);
 
-            {/* Selected Item Preview */}
-            {selectedFood && (
-              <div style={{ background: '#f8fafc', padding: '10px', borderRadius: '8px', display: 'flex', gap: '12px', alignItems: 'center', border: '1px solid #e2e8f0' }}>
-                {selectedFood.video && (
-                  <video src={selectedFood.video} style={{ width: '60px', height: '60px', objectFit: 'cover', borderRadius: '6px' }} />
-                )}
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span style={{ fontSize: '12px' }}>{selectedFood.category === 'Non-Veg' ? '🔴' : '🟢'}</span>
-                    <strong>{selectedFood.name}</strong>
-                  </div>
-                  <p style={{ margin: '3px 0 0 0', fontSize: '12px', color: '#64748b' }}>
-                    {selectedFood.description || 'Delicious meal prepared fresh!'}
-                  </p>
+    // Calculate total price
+    const unitPrice = selectedPortion?.price || foodItem?.price || 0;
+    const totalPrice = unitPrice * quantity;
+
+    const handlePlaceOrder = async (e) => {
+        e.preventDefault();
+        if (!phone || !address) {
+            return alert('Please fill in your phone number and delivery address.');
+        }
+
+        setLoading(true);
+        try {
+            const token = localStorage.getItem('token');
+            const partnerId = typeof foodItem?.foodPartner === 'object' 
+                ? foodItem.foodPartner._id 
+                : foodItem?.foodPartner;
+
+            const res = await axios.post(
+                `${import.meta.env.VITE_API_URL}/api/orders/create`,
+                {
+                    foodId: foodItem._id,
+                    foodPartnerId: partnerId,
+                    portion: selectedPortion?.name || 'Standard',
+                    price: totalPrice,
+                    quantity: quantity,
+                    phone: phone,
+                    deliveryAddress: address
+                },
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+
+            if (res.data.success) {
+                alert('Order placed successfully!');
+                onClose();
+            }
+        } catch (err) {
+            alert(err.response?.data?.message || 'Failed to place order');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex justify-center items-center z-50 p-4">
+            <div className="bg-[#18181b] text-white w-full max-w-md rounded-2xl p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto border border-zinc-800">
+                
+                {/* Header */}
+                <div className="flex justify-between items-center mb-5 border-b border-zinc-800 pb-3">
+                    <div>
+                        <span className="text-xs text-yellow-500 font-semibold tracking-wider uppercase block">Ordering From</span>
+                        <h2 className="text-lg font-bold text-white">
+                            {foodItem?.foodPartner?.restaurantName || foodItem?.foodPartner?.name || 'Restaurant Partner'}
+                        </h2>
+                    </div>
+                    <button 
+                        onClick={onClose}
+                        className="text-zinc-400 hover:text-white text-2xl font-bold leading-none p-1"
+                    >
+                        &times;
+                    </button>
                 </div>
-              </div>
-            )}
 
-            {/* Step B: Portion & Quantity Selection */}
-            <div style={{ display: 'flex', gap: '12px' }}>
-              <div style={{ flex: 1 }}>
-                <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px', fontSize: '14px' }}>Portion Size</label>
-                <select value={size} onChange={(e) => setSize(e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #ccc' }}>
-                  <option value="small">Small (₹{selectedFood?.portions?.small || Math.round((selectedFood?.price || 150) * 0.8)})</option>
-                  <option value="medium">Medium / Reg (₹{selectedFood?.portions?.medium || selectedFood?.price || 150})</option>
-                  <option value="large">Large (₹{selectedFood?.portions?.large || Math.round((selectedFood?.price || 150) * 1.3)})</option>
-                </select>
-              </div>
+                <form onSubmit={handlePlaceOrder} className="space-y-4">
+                    {/* Food Item Header Badge (Replaces problematic <select>) */}
+                    <div className="bg-zinc-800/80 border border-zinc-700 rounded-xl p-3.5 flex items-center justify-between">
+                        <div>
+                            <label className="block text-[11px] uppercase tracking-wider font-bold text-zinc-400 mb-0.5">
+                                Selected Dish
+                            </label>
+                            <h3 className="text-base font-bold text-white">
+                                {itemName}
+                            </h3>
+                        </div>
+                        <div className="bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 px-3 py-1 rounded-full text-xs font-bold">
+                            ₹{unitPrice}
+                        </div>
+                    </div>
 
-              <div style={{ flex: 1 }}>
-                <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px', fontSize: '14px' }}>Quantity</label>
-                <input 
-                  type="number" 
-                  min="1" 
-                  max="10" 
-                  value={quantity} 
-                  onChange={(e) => setQuantity(Number(e.target.value))} 
-                  style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #ccc' }}
-                />
-              </div>
+                    {/* Portion & Quantity Selection */}
+                    <div className="grid grid-cols-2 gap-3">
+                        <div>
+                            <label className="block text-xs font-semibold text-zinc-300 mb-1">
+                                Portion Size
+                            </label>
+                            <select 
+                                value={selectedPortion?.name}
+                                onChange={(e) => {
+                                    const selected = portions.find(p => p.name === e.target.value);
+                                    setSelectedPortion(selected);
+                                }}
+                                className="w-full bg-zinc-900 text-white border border-zinc-700 rounded-lg p-2.5 text-sm font-semibold focus:outline-none focus:border-yellow-500"
+                            >
+                                {portions.map((p, idx) => (
+                                    <option key={idx} value={p.name} className="bg-zinc-900 text-white">
+                                        {p.name} (₹{p.price})
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div>
+                            <label className="block text-xs font-semibold text-zinc-300 mb-1">
+                                Quantity
+                            </label>
+                            <input 
+                                type="number" 
+                                min="1" 
+                                value={quantity}
+                                onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                                className="w-full bg-zinc-900 text-white border border-zinc-700 rounded-lg p-2.5 text-sm font-semibold focus:outline-none focus:border-yellow-500"
+                            />
+                        </div>
+                    </div>
+
+                    {/* Phone Number Input */}
+                    <div>
+                        <label className="block text-xs font-semibold text-zinc-300 mb-1">
+                            Phone Number *
+                        </label>
+                        <input 
+                            type="tel"
+                            required
+                            placeholder="Enter contact number"
+                            value={phone}
+                            onChange={(e) => setPhone(e.target.value)}
+                            className="w-full bg-zinc-900 text-white placeholder-zinc-500 border border-zinc-700 rounded-lg p-2.5 text-sm font-medium focus:outline-none focus:border-yellow-500"
+                        />
+                    </div>
+
+                    {/* Delivery Address Input */}
+                    <div>
+                        <label className="block text-xs font-semibold text-zinc-300 mb-1">
+                            Delivery Address *
+                        </label>
+                        <textarea 
+                            required
+                            rows="2"
+                            placeholder="House no, street, landmark..."
+                            value={address}
+                            onChange={(e) => setAddress(e.target.value)}
+                            className="w-full bg-zinc-900 text-white placeholder-zinc-500 border border-zinc-700 rounded-lg p-2.5 text-sm font-medium focus:outline-none focus:border-yellow-500"
+                        />
+                    </div>
+
+                    {/* Payment Method Option */}
+                    <div>
+                        <label className="block text-xs font-semibold text-zinc-300 mb-1">
+                            Payment Method
+                        </label>
+                        <div className="w-full bg-zinc-900/60 border border-zinc-800 rounded-lg p-2.5 text-sm text-zinc-300 font-medium flex items-center justify-between">
+                            <span>Cash on Delivery</span>
+                            <span className="text-xs bg-green-500/20 text-green-400 px-2 py-0.5 rounded font-bold">Active</span>
+                        </div>
+                    </div>
+
+                    {/* Submit Order Button */}
+                    <button
+                        type="submit"
+                        disabled={loading}
+                        className="w-full mt-2 py-3 bg-yellow-500 hover:bg-yellow-400 text-black font-bold text-base rounded-xl transition shadow-lg flex items-center justify-center gap-2"
+                    >
+                        {loading ? 'Placing Order...' : `Place Order • ₹${totalPrice}`}
+                    </button>
+                </form>
             </div>
-
-            <hr style={{ border: 'none', borderTop: '1px solid #eee', margin: '5px 0' }} />
-
-            {/* Step C: Customer Details (Auto-filled) */}
-            <div>
-              <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px', fontSize: '14px' }}>Customer Name</label>
-              <input type="text" value={storedUser.fullName || storedUser.name || ''} disabled style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #ccc', background: '#f1f5f9' }} />
-            </div>
-
-            <div>
-              <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px', fontSize: '14px' }}>Email Address</label>
-              <input type="email" value={storedUser.email || ''} disabled style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #ccc', background: '#f1f5f9' }} />
-            </div>
-
-            <div>
-              <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px', fontSize: '14px' }}>Phone Number *</label>
-              <input type="tel" placeholder="Enter phone number" value={phone} onChange={(e) => setPhone(e.target.value)} required style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #ccc' }} />
-            </div>
-
-            <div>
-              <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px', fontSize: '14px' }}>Delivery Address *</label>
-              <textarea placeholder="House no, street, landmark..." value={address} onChange={(e) => setAddress(e.target.value)} required rows={2} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #ccc' }} />
-            </div>
-
-            {/* Step D: Payment Option */}
-            <div>
-              <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px', fontSize: '14px' }}>Payment Method</label>
-              <select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #ccc' }}>
-                <option value="COD">Cash on Delivery</option>
-                <option value="UPI">UPI / Online Test Payment</option>
-              </select>
-            </div>
-
-            {/* Submit Button */}
-            <button type="submit" style={{ backgroundColor: '#2563eb', color: '#fff', border: 'none', padding: '12px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', marginTop: '10px', fontSize: '15px' }}>
-              Confirm & Pay ₹{totalPrice}
-            </button>
-          </form>
-        )}
-      </div>
-    </div>
-  );
+        </div>
+    );
 };
 
 export default OrderModal;
