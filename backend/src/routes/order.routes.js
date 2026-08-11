@@ -1,17 +1,21 @@
 const express = require('express');
 const Order = require('../models/order.model');
-const { authUser } = require('../middlewares/auth.middleware');
+const authMiddleware = require('../middlewares/auth.middleware');
 
-const router = express.Router(); // Fixed: Capitalized 'R'
+// Safely extract the middleware function regardless of export style
+const authUser = typeof authMiddleware === 'function' 
+    ? authMiddleware 
+    : (authMiddleware.authUser || authMiddleware.default);
+
+const router = express.Router();
 
 // Place a new order
 router.post('/create', authUser, async (req, res) => {
     try {
-        // Fixed: Corrected spelling to deliveryAddress
         const { foodId, foodPartnerId, portion, price, quantity, deliveryAddress } = req.body;
 
         const newOrder = await Order.create({
-            user: req.user._id,
+            user: req.user._id || req.user.id,
             food: foodId,
             foodPartner: foodPartnerId,
             portion,
@@ -20,7 +24,6 @@ router.post('/create', authUser, async (req, res) => {
             deliveryAddress
         });
 
-        // Fixed: Changed res,status to res.status
         res.status(201).json({ success: true, order: newOrder });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
@@ -30,7 +33,7 @@ router.post('/create', authUser, async (req, res) => {
 // Get all orders for a customer
 router.get('/my-orders', authUser, async (req, res) => {
     try {
-        const orders = await Order.find({ user: req.user._id })
+        const orders = await Order.find({ user: req.user._id || req.user.id })
             .populate('food')
             .populate('foodPartner', 'name restaurantName')
             .sort({ createdAt: -1 });
