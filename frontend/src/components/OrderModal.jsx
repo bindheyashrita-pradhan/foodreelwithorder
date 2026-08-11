@@ -2,10 +2,8 @@ import React, { useState } from 'react';
 import axios from 'axios';
 
 const OrderModal = ({ foodItem, onClose }) => {
-    // 1. Extract item name safely
     const itemName = foodItem?.name || foodItem?.title || foodItem?.foodName || 'Selected Food Item';
 
-    // 2. Fallback for empty portions array
     const availablePortions = Array.isArray(foodItem?.portions) && foodItem.portions.length > 0
         ? foodItem.portions
         : [{ name: 'Standard / Full', price: foodItem?.price || 150 }];
@@ -16,31 +14,37 @@ const OrderModal = ({ foodItem, onClose }) => {
     const [address, setAddress] = useState('');
     const [loading, setLoading] = useState(false);
 
-    // Calculate pricing safely
     const unitPrice = Number(selectedPortion?.price || foodItem?.price || 150);
     const totalPrice = unitPrice * quantity;
 
     const handlePlaceOrder = async (e) => {
         e.preventDefault();
 
-        // Check all common token locations in localStorage
-        const savedUserStr = localStorage.getItem('user');
+        // Debug: Log all keys in localStorage to find where the token lives
+        console.log("Current localStorage contents:", { ...localStorage });
+
+        // Retrieve saved user object if present
         let parsedUserToken = null;
+        const savedUserStr = localStorage.getItem('user');
         if (savedUserStr) {
             try {
                 const parsed = JSON.parse(savedUserStr);
-                parsedUserToken = parsed.token || parsed.userToken;
+                parsedUserToken = parsed.token || parsed.userToken || parsed.authToken || parsed.accessToken;
             } catch (err) {
-                /* ignore json error */
+                // Ignore parsing errors
             }
         }
 
+        // Search every possible location for the JWT token
         const token = localStorage.getItem('token') || 
                       localStorage.getItem('userToken') || 
                       localStorage.getItem('authToken') || 
+                      localStorage.getItem('partnerToken') || 
+                      localStorage.getItem('accessToken') || 
                       parsedUserToken;
 
         if (!token) {
+            console.error("No token found in localStorage keys or user object.");
             return alert('Please log in as a customer first before placing an order.');
         }
 
@@ -111,7 +115,6 @@ const OrderModal = ({ foodItem, onClose }) => {
                 border: '1px solid #27272a',
                 fontFamily: 'system-ui, -apple-system, sans-serif'
             }}>
-                
                 {/* Header */}
                 <div style={{
                     display: 'flex',
@@ -148,7 +151,6 @@ const OrderModal = ({ foodItem, onClose }) => {
                 </div>
 
                 <form onSubmit={handlePlaceOrder} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                    
                     {/* Selected Dish Card */}
                     <div style={{
                         background: '#27272a',
