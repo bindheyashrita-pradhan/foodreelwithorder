@@ -2,10 +2,10 @@ import React, { useState } from 'react';
 import axios from 'axios';
 
 const OrderModal = ({ foodItem, onClose }) => {
-    // 1. Extract item name
+    // 1. Extract item name safely
     const itemName = foodItem?.name || foodItem?.title || foodItem?.foodName || 'Selected Food Item';
 
-    // 2. Safely parse portions (fallback if portions array is empty)
+    // 2. Fallback for empty portions array
     const availablePortions = Array.isArray(foodItem?.portions) && foodItem.portions.length > 0
         ? foodItem.portions
         : [{ name: 'Standard / Full', price: foodItem?.price || 150 }];
@@ -16,7 +16,7 @@ const OrderModal = ({ foodItem, onClose }) => {
     const [address, setAddress] = useState('');
     const [loading, setLoading] = useState(false);
 
-    // Calculate total price safely
+    // Calculate pricing safely
     const unitPrice = Number(selectedPortion?.price || foodItem?.price || 150);
     const totalPrice = unitPrice * quantity;
 
@@ -60,7 +60,7 @@ const OrderModal = ({ foodItem, onClose }) => {
             );
 
             if (res.data?.success) {
-                alert('Order placed successfully!');
+                alert('🎉 Order placed successfully!');
                 onClose();
             }
         } catch (err) {
@@ -72,47 +72,102 @@ const OrderModal = ({ foodItem, onClose }) => {
     };
 
     return (
-        <div style={{position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(6px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 99999, padding: 16}}>
-            <div style={{background: '#18181b', color: '#fff', width: '100%', maxWidth: 520, borderRadius: 16, padding: 24, boxShadow: '0 10px 30px rgba(0,0,0,0.6)', position: 'relative', border: '1px solid #27272a'}}>
+        <div style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0,0,0,0.85)',
+            backdropFilter: 'blur(8px)',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            zIndex: 999999,
+            padding: 16
+        }}>
+            <div style={{
+                background: '#18181b',
+                color: '#ffffff',
+                width: '100%',
+                maxWidth: 460,
+                borderRadius: 16,
+                padding: 24,
+                boxShadow: '0 20px 40px rgba(0,0,0,0.8)',
+                position: 'relative',
+                border: '1px solid #27272a',
+                fontFamily: 'system-ui, -apple-system, sans-serif'
+            }}>
                 
                 {/* Header */}
-                <div className="flex justify-between items-center mb-5 border-b border-zinc-800 pb-3">
+                <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginBottom: 20,
+                    borderBottom: '1px solid #27272a',
+                    paddingBottom: 12
+                }}>
                     <div>
-                        <span className="text-xs text-yellow-500 font-semibold tracking-wider uppercase block">Ordering From</span>
-                        <h2 className="text-lg font-bold text-white">
+                        <span style={{ fontSize: 11, color: '#eab308', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', display: 'block' }}>
+                            Ordering From
+                        </span>
+                        <h2 style={{ fontSize: 18, fontWeight: 700, color: '#fff', margin: '2px 0 0 0' }}>
                             {foodItem?.foodPartner?.restaurantName || foodItem?.foodPartner?.name || 'Food Partner'}
                         </h2>
                     </div>
                     <button 
                         type="button"
                         onClick={onClose}
-                        aria-label="Close order modal"
-                        style={{color: '#9ca3af', fontSize: 22, fontWeight: 700, lineHeight: 1, padding: 6, background: 'transparent', border: 'none', cursor: 'pointer'}}
+                        aria-label="Close modal"
+                        style={{
+                            color: '#a1a1aa',
+                            fontSize: 24,
+                            fontWeight: 700,
+                            background: 'transparent',
+                            border: 'none',
+                            cursor: 'pointer',
+                            padding: '4px 8px'
+                        }}
                     >
                         &times;
                     </button>
                 </div>
 
-                <form onSubmit={handlePlaceOrder} className="space-y-4">
+                <form onSubmit={handlePlaceOrder} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                    
                     {/* Selected Dish Card */}
-                    <div className="bg-zinc-800/90 border border-zinc-700 rounded-xl p-3.5 flex items-center justify-between">
+                    <div style={{
+                        background: '#27272a',
+                        border: '1px solid #3f3f46',
+                        borderRadius: 12,
+                        padding: '12px 16px',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center'
+                    }}>
                         <div>
-                            <label className="block text-[11px] uppercase tracking-wider font-bold text-zinc-400 mb-0.5">
+                            <span style={{ display: 'block', fontSize: 10, textTransform: 'uppercase', fontWeight: 700, color: '#a1a1aa', letterSpacing: '0.05em' }}>
                                 Selected Dish
-                            </label>
-                            <h3 className="text-base font-bold text-white capitalize">
+                            </span>
+                            <h3 style={{ fontSize: 16, fontWeight: 700, color: '#fff', textTransform: 'capitalize', margin: '2px 0 0 0' }}>
                                 {itemName}
                             </h3>
                         </div>
-                        <div className="bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 px-3 py-1 rounded-full text-xs font-bold">
+                        <div style={{
+                            background: 'rgba(234, 179, 8, 0.2)',
+                            color: '#eab308',
+                            border: '1px solid rgba(234, 179, 8, 0.4)',
+                            padding: '4px 12px',
+                            borderRadius: 999,
+                            fontSize: 13,
+                            fontWeight: 700
+                        }}>
                             ₹{unitPrice}
                         </div>
                     </div>
 
-                    {/* Portion & Quantity Selection */}
-                    <div className="grid grid-cols-2 gap-3">
+                    {/* Portion & Quantity Row */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                         <div>
-                            <label className="block text-xs font-semibold text-zinc-300 mb-1">
+                            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#d4d4d8', marginBottom: 6 }}>
                                 Portion Size
                             </label>
                             <select 
@@ -121,10 +176,21 @@ const OrderModal = ({ foodItem, onClose }) => {
                                     const selected = availablePortions.find(p => p.name === e.target.value);
                                     if (selected) setSelectedPortion(selected);
                                 }}
-                                className="w-full bg-zinc-900 text-white border border-zinc-700 rounded-lg p-2.5 text-sm font-semibold focus:outline-none focus:border-yellow-500"
+                                style={{
+                                    width: '100%',
+                                    background: '#09090b',
+                                    color: '#ffffff',
+                                    border: '1px solid #3f3f46',
+                                    borderRadius: 8,
+                                    padding: '10px 12px',
+                                    fontSize: 13,
+                                    fontWeight: 600,
+                                    outline: 'none',
+                                    boxSizing: 'border-box'
+                                }}
                             >
                                 {availablePortions.map((p, idx) => (
-                                    <option key={idx} value={p.name} className="bg-zinc-900 text-white">
+                                    <option key={idx} value={p.name} style={{ background: '#18181b', color: '#fff' }}>
                                         {p.name} (₹{p.price})
                                     </option>
                                 ))}
@@ -132,7 +198,7 @@ const OrderModal = ({ foodItem, onClose }) => {
                         </div>
 
                         <div>
-                            <label className="block text-xs font-semibold text-zinc-300 mb-1">
+                            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#d4d4d8', marginBottom: 6 }}>
                                 Quantity
                             </label>
                             <input 
@@ -140,14 +206,25 @@ const OrderModal = ({ foodItem, onClose }) => {
                                 min="1" 
                                 value={quantity}
                                 onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-                                className="w-full bg-zinc-900 text-white border border-zinc-700 rounded-lg p-2.5 text-sm font-semibold focus:outline-none focus:border-yellow-500"
+                                style={{
+                                    width: '100%',
+                                    background: '#09090b',
+                                    color: '#ffffff',
+                                    border: '1px solid #3f3f46',
+                                    borderRadius: 8,
+                                    padding: '10px 12px',
+                                    fontSize: 13,
+                                    fontWeight: 600,
+                                    outline: 'none',
+                                    boxSizing: 'border-box'
+                                }}
                             />
                         </div>
                     </div>
 
                     {/* Phone Number Input */}
                     <div>
-                        <label className="block text-xs font-semibold text-zinc-300 mb-1">
+                        <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#d4d4d8', marginBottom: 6 }}>
                             Phone Number *
                         </label>
                         <input 
@@ -156,13 +233,24 @@ const OrderModal = ({ foodItem, onClose }) => {
                             placeholder="Enter contact number"
                             value={phone}
                             onChange={(e) => setPhone(e.target.value)}
-                            className="w-full bg-zinc-900 text-white placeholder-zinc-500 border border-zinc-700 rounded-lg p-2.5 text-sm font-medium focus:outline-none focus:border-yellow-500"
+                            style={{
+                                width: '100%',
+                                background: '#09090b',
+                                color: '#ffffff',
+                                border: '1px solid #3f3f46',
+                                borderRadius: 8,
+                                padding: '10px 12px',
+                                fontSize: 13,
+                                fontWeight: 500,
+                                outline: 'none',
+                                boxSizing: 'border-box'
+                            }}
                         />
                     </div>
 
                     {/* Delivery Address Input */}
                     <div>
-                        <label className="block text-xs font-semibold text-zinc-300 mb-1">
+                        <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#d4d4d8', marginBottom: 6 }}>
                             Delivery Address *
                         </label>
                         <textarea 
@@ -171,26 +259,65 @@ const OrderModal = ({ foodItem, onClose }) => {
                             placeholder="House no, street, landmark..."
                             value={address}
                             onChange={(e) => setAddress(e.target.value)}
-                            className="w-full bg-zinc-900 text-white placeholder-zinc-500 border border-zinc-700 rounded-lg p-2.5 text-sm font-medium focus:outline-none focus:border-yellow-500"
+                            style={{
+                                width: '100%',
+                                background: '#09090b',
+                                color: '#ffffff',
+                                border: '1px solid #3f3f46',
+                                borderRadius: 8,
+                                padding: '10px 12px',
+                                fontSize: 13,
+                                fontWeight: 500,
+                                outline: 'none',
+                                boxSizing: 'border-box',
+                                resize: 'vertical'
+                            }}
                         />
                     </div>
 
                     {/* Payment Method Option */}
                     <div>
-                        <label className="block text-xs font-semibold text-zinc-300 mb-1">
+                        <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#d4d4d8', marginBottom: 6 }}>
                             Payment Method
                         </label>
-                        <div className="w-full bg-zinc-900/60 border border-zinc-800 rounded-lg p-2.5 text-sm text-zinc-300 font-medium flex items-center justify-between">
+                        <div style={{
+                            width: '100%',
+                            background: '#09090b',
+                            border: '1px solid #27272a',
+                            borderRadius: 8,
+                            padding: '10px 12px',
+                            fontSize: 13,
+                            color: '#d4d4d8',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            boxSizing: 'border-box'
+                        }}>
                             <span>Cash on Delivery</span>
-                            <span className="text-xs bg-green-500/20 text-green-400 px-2 py-0.5 rounded font-bold">Active</span>
+                            <span style={{ fontSize: 11, background: 'rgba(34, 197, 94, 0.2)', color: '#22c55e', padding: '2px 8px', borderRadius: 4, fontWeight: 700 }}>
+                                Active
+                            </span>
                         </div>
                     </div>
 
-                    {/* Submit Order Button */}
+                    {/* Place Order Button */}
                     <button
                         type="submit"
                         disabled={loading}
-                        className="w-full mt-2 py-3 bg-yellow-500 hover:bg-yellow-400 text-black font-bold text-base rounded-xl transition shadow-lg flex items-center justify-center gap-2 disabled:opacity-50"
+                        style={{
+                            width: '100%',
+                            marginTop: 8,
+                            padding: '12px 16px',
+                            backgroundColor: '#eab308',
+                            color: '#000000',
+                            fontWeight: 700,
+                            fontSize: 15,
+                            borderRadius: 12,
+                            border: 'none',
+                            cursor: loading ? 'not-allowed' : 'pointer',
+                            opacity: loading ? 0.6 : 1,
+                            transition: 'background-color 0.2s ease'
+                        }}
                     >
                         {loading ? 'Placing Order...' : `Place Order • ₹${totalPrice}`}
                     </button>
