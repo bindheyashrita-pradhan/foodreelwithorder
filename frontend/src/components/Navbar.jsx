@@ -12,16 +12,19 @@ const Navbar = () => {
 
   const handleLogout = async () => {
     try {
+      const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
       if (userType === 'partner') {
-        await axios.get('http://localhost:3000/api/auth/food-partner/logout', { withCredentials: true });
+        await axios.post(`${baseUrl}/api/auth/food-partner/logout`, {}, { withCredentials: true });
       } else {
-        await axios.get('http://localhost:3000/api/auth/user/logout', { withCredentials: true });
+        await axios.post(`${baseUrl}/api/auth/user/logout`, {}, { withCredentials: true });
       }
     } catch (err) {
       console.error("Logout error:", err);
     } finally {
       localStorage.removeItem('user');
       localStorage.removeItem('userType');
+      localStorage.removeItem('token');
+      localStorage.removeItem('partnerToken');
       navigate('/user/login');
     }
   };
@@ -41,6 +44,21 @@ const Navbar = () => {
             <span className="user-display-name">
               {user.fullName || user.name || user.email}
             </span>
+
+            {/* Orders link for Customer */}
+            {userType !== 'partner' && (
+              <Link to="/my-orders" className="nav-link-btn">
+                🛍️ My Orders
+              </Link>
+            )}
+
+            {/* Orders link for Food Partner */}
+            {userType === 'partner' && (
+              <Link to="/food-partner/orders" className="nav-link-btn partner">
+                📦 Orders
+              </Link>
+            )}
+
             <button onClick={handleLogout} className="nav-logout-btn">
               Logout
             </button>
