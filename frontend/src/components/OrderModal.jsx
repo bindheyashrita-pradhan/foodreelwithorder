@@ -23,7 +23,23 @@ const OrderModal = ({ foodItem, onClose }) => {
     const handlePlaceOrder = async (e) => {
         e.preventDefault();
 
-        const token = localStorage.getItem('token') || localStorage.getItem('userToken');
+        // Check all common token locations in localStorage
+        const savedUserStr = localStorage.getItem('user');
+        let parsedUserToken = null;
+        if (savedUserStr) {
+            try {
+                const parsed = JSON.parse(savedUserStr);
+                parsedUserToken = parsed.token || parsed.userToken;
+            } catch (err) {
+                /* ignore json error */
+            }
+        }
+
+        const token = localStorage.getItem('token') || 
+                      localStorage.getItem('userToken') || 
+                      localStorage.getItem('authToken') || 
+                      parsedUserToken;
+
         if (!token) {
             return alert('Please log in as a customer first before placing an order.');
         }
