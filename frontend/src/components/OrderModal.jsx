@@ -2,13 +2,12 @@ import React, { useState } from 'react';
 import axios from 'axios';
 
 const OrderModal = ({ foodItem, onClose }) => {
-    // 1. Extract food title or parse from description if title is blank
+    // 1. Extract food title or parse from description
     const getFoodName = () => {
         if (foodItem?.name) return foodItem.name;
         if (foodItem?.title) return foodItem.title;
         if (foodItem?.foodName) return foodItem.foodName;
         if (foodItem?.description) {
-            // Extract text before colon or first sentence
             const parts = foodItem.description.split(':');
             if (parts.length > 1) return parts[0].trim();
         }
@@ -34,17 +33,29 @@ const OrderModal = ({ foodItem, onClose }) => {
 
     const handlePlaceOrder = async (e) => {
         e.preventDefault();
-        if (!phone || !address) {
-            return alert('Please fill in your phone number and delivery address.');
+
+        // Retrieve token from localStorage
+        const token = localStorage.getItem('token') || localStorage.getItem('userToken');
+        
+        if (!token) {
+            return alert('Please log in as a customer first before placing an order.');
+        }
+
+        if (!phone.trim() || !address.trim()) {
+            return alert('Please fill in both your phone number and delivery address.');
+        }
+
+        // Safely resolve foodPartner ID
+        const partnerId = typeof foodItem?.foodPartner === 'object' && foodItem?.foodPartner !== null
+            ? foodItem.foodPartner._id 
+            : (foodItem?.foodPartner || foodItem?.partnerId);
+
+        if (!partnerId) {
+            return alert('Unable to detect restaurant partner for this item. Please try another reel.');
         }
 
         setLoading(true);
         try {
-            const token = localStorage.getItem('token');
-            const partnerId = typeof foodItem?.foodPartner === 'object' 
-                ? foodItem.foodPartner._id 
-                : foodItem?.foodPartner;
-
             const res = await axios.post(
                 `${import.meta.env.VITE_API_URL}/api/orders/create`,
                 {
@@ -56,15 +67,22 @@ const OrderModal = ({ foodItem, onClose }) => {
                     phone: phone,
                     deliveryAddress: address
                 },
-                { headers: { Authorization: `Bearer ${token}` } }
+                { 
+                    headers: { 
+                        Authorization: `Bearer ${token}` 
+                    },
+                    withCredentials: true 
+                }
             );
 
-            if (res.data.success) {
-                alert('Order placed successfully!');
+            if (res.data?.success) {
+                alert('🎉 Order placed successfully!');
                 onClose();
             }
         } catch (err) {
-            alert(err.response?.data?.message || 'Failed to place order');
+            console.error("Order submission error:", err);
+            const errorMsg = err.response?.data?.message || err.message || 'Failed to place order';
+            alert(`Error: ${errorMsg}`);
         } finally {
             setLoading(false);
         }
@@ -83,6 +101,7 @@ const OrderModal = ({ foodItem, onClose }) => {
                         </h2>
                     </div>
                     <button 
+                        type="button"
                         onClick={onClose}
                         className="text-zinc-400 hover:text-white text-2xl font-bold leading-none p-1"
                     >
@@ -91,7 +110,7 @@ const OrderModal = ({ foodItem, onClose }) => {
                 </div>
 
                 <form onSubmit={handlePlaceOrder} className="space-y-4">
-                    {/* Food Item Header Badge (Replaces problematic <select>) */}
+                    {/* Food Item Badge */}
                     <div className="bg-zinc-800/80 border border-zinc-700 rounded-xl p-3.5 flex items-center justify-between">
                         <div>
                             <label className="block text-[11px] uppercase tracking-wider font-bold text-zinc-400 mb-0.5">
@@ -187,7 +206,7 @@ const OrderModal = ({ foodItem, onClose }) => {
                     <button
                         type="submit"
                         disabled={loading}
-                        className="w-full mt-2 py-3 bg-yellow-500 hover:bg-yellow-400 text-black font-bold text-base rounded-xl transition shadow-lg flex items-center justify-center gap-2"
+                        className="w-full mt-2 py-3 bg-yellow-500 hover:bg-yellow-400 text-black font-bold text-base rounded-xl transition shadow-lg flex items-center justify-center gap-2 disabled:opacity-50"
                     >
                         {loading ? 'Placing Order...' : `Place Order • ₹${totalPrice}`}
                     </button>
