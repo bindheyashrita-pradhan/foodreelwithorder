@@ -2,41 +2,28 @@ import React, { useState } from 'react';
 import axios from 'axios';
 
 const OrderModal = ({ foodItem, onClose }) => {
-    // 1. Extract food title or parse from description
-    const getFoodName = () => {
-        if (foodItem?.name) return foodItem.name;
-        if (foodItem?.title) return foodItem.title;
-        if (foodItem?.foodName) return foodItem.foodName;
-        if (foodItem?.description) {
-            const parts = foodItem.description.split(':');
-            if (parts.length > 1) return parts[0].trim();
-        }
-        return 'Special Dish';
-    };
+    // 1. Extract item name
+    const itemName = foodItem?.name || foodItem?.title || foodItem?.foodName || 'Selected Food Item';
 
-    const itemName = getFoodName();
+    // 2. Safely parse portions (fallback if portions array is empty)
+    const availablePortions = Array.isArray(foodItem?.portions) && foodItem.portions.length > 0
+        ? foodItem.portions
+        : [{ name: 'Standard / Full', price: foodItem?.price || 150 }];
 
-    // 2. Portion choices
-    const portions = foodItem?.portions && foodItem.portions.length > 0 
-        ? foodItem.portions 
-        : [{ name: 'Medium / Reg', price: foodItem?.price || 150 }];
-
-    const [selectedPortion, setSelectedPortion] = useState(portions[0]);
+    const [selectedPortion, setSelectedPortion] = useState(availablePortions[0]);
     const [quantity, setQuantity] = useState(1);
     const [phone, setPhone] = useState('');
     const [address, setAddress] = useState('');
     const [loading, setLoading] = useState(false);
 
-    // Calculate total price
-    const unitPrice = selectedPortion?.price || foodItem?.price || 0;
+    // Calculate total price safely
+    const unitPrice = Number(selectedPortion?.price || foodItem?.price || 150);
     const totalPrice = unitPrice * quantity;
 
     const handlePlaceOrder = async (e) => {
         e.preventDefault();
 
-        // Retrieve token from localStorage
         const token = localStorage.getItem('token') || localStorage.getItem('userToken');
-        
         if (!token) {
             return alert('Please log in as a customer first before placing an order.');
         }
@@ -45,13 +32,12 @@ const OrderModal = ({ foodItem, onClose }) => {
             return alert('Please fill in both your phone number and delivery address.');
         }
 
-        // Safely resolve foodPartner ID
         const partnerId = typeof foodItem?.foodPartner === 'object' && foodItem?.foodPartner !== null
             ? foodItem.foodPartner._id 
             : (foodItem?.foodPartner || foodItem?.partnerId);
 
         if (!partnerId) {
-            return alert('Unable to detect restaurant partner for this item. Please try another reel.');
+            return alert('Unable to detect restaurant partner for this item.');
         }
 
         setLoading(true);
@@ -68,36 +54,33 @@ const OrderModal = ({ foodItem, onClose }) => {
                     deliveryAddress: address
                 },
                 { 
-                    headers: { 
-                        Authorization: `Bearer ${token}` 
-                    },
+                    headers: { Authorization: `Bearer ${token}` },
                     withCredentials: true 
                 }
             );
 
             if (res.data?.success) {
-                alert('🎉 Order placed successfully!');
+                alert('Order placed successfully!');
                 onClose();
             }
         } catch (err) {
-            console.error("Order submission error:", err);
-            const errorMsg = err.response?.data?.message || err.message || 'Failed to place order';
-            alert(`Error: ${errorMsg}`);
+            console.error("Order submit error:", err);
+            alert(err.response?.data?.message || 'Failed to place order.');
         } finally {
             setLoading(false);
         }
     };
 
     return (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex justify-center items-center z-50 p-4">
-            <div className="bg-[#18181b] text-white w-full max-w-md rounded-2xl p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto border border-zinc-800">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex justify-center items-center z-[99999] p-4">
+            <div className="bg-[#18181b] text-white w-full max-w-md rounded-2xl p-6 shadow-2xl relative border border-zinc-800">
                 
                 {/* Header */}
                 <div className="flex justify-between items-center mb-5 border-b border-zinc-800 pb-3">
                     <div>
                         <span className="text-xs text-yellow-500 font-semibold tracking-wider uppercase block">Ordering From</span>
                         <h2 className="text-lg font-bold text-white">
-                            {foodItem?.foodPartner?.restaurantName || foodItem?.foodPartner?.name || 'Restaurant Partner'}
+                            {foodItem?.foodPartner?.restaurantName || foodItem?.foodPartner?.name || 'Food Partner'}
                         </h2>
                     </div>
                     <button 
@@ -110,13 +93,13 @@ const OrderModal = ({ foodItem, onClose }) => {
                 </div>
 
                 <form onSubmit={handlePlaceOrder} className="space-y-4">
-                    {/* Food Item Badge */}
-                    <div className="bg-zinc-800/80 border border-zinc-700 rounded-xl p-3.5 flex items-center justify-between">
+                    {/* Selected Dish Card */}
+                    <div className="bg-zinc-800/90 border border-zinc-700 rounded-xl p-3.5 flex items-center justify-between">
                         <div>
                             <label className="block text-[11px] uppercase tracking-wider font-bold text-zinc-400 mb-0.5">
                                 Selected Dish
                             </label>
-                            <h3 className="text-base font-bold text-white">
+                            <h3 className="text-base font-bold text-white capitalize">
                                 {itemName}
                             </h3>
                         </div>
@@ -134,12 +117,12 @@ const OrderModal = ({ foodItem, onClose }) => {
                             <select 
                                 value={selectedPortion?.name}
                                 onChange={(e) => {
-                                    const selected = portions.find(p => p.name === e.target.value);
-                                    setSelectedPortion(selected);
+                                    const selected = availablePortions.find(p => p.name === e.target.value);
+                                    if (selected) setSelectedPortion(selected);
                                 }}
                                 className="w-full bg-zinc-900 text-white border border-zinc-700 rounded-lg p-2.5 text-sm font-semibold focus:outline-none focus:border-yellow-500"
                             >
-                                {portions.map((p, idx) => (
+                                {availablePortions.map((p, idx) => (
                                     <option key={idx} value={p.name} className="bg-zinc-900 text-white">
                                         {p.name} (₹{p.price})
                                     </option>
