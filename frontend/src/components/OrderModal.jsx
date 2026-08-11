@@ -72,8 +72,8 @@ const OrderModal = ({ foodItem, onClose }) => {
     };
 
     return (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex justify-center items-center z-[99999] p-4">
-            <div className="bg-[#18181b] text-white w-full max-w-md rounded-2xl p-6 shadow-2xl relative border border-zinc-800">
+        <div style={{position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(6px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 99999, padding: 16}}>
+            <div style={{background: '#18181b', color: '#fff', width: '100%', maxWidth: 520, borderRadius: 16, padding: 24, boxShadow: '0 10px 30px rgba(0,0,0,0.6)', position: 'relative', border: '1px solid #27272a'}}>
                 
                 {/* Header */}
                 <div className="flex justify-between items-center mb-5 border-b border-zinc-800 pb-3">
@@ -86,7 +86,8 @@ const OrderModal = ({ foodItem, onClose }) => {
                     <button 
                         type="button"
                         onClick={onClose}
-                        className="text-zinc-400 hover:text-white text-2xl font-bold leading-none p-1"
+                        aria-label="Close order modal"
+                        style={{color: '#9ca3af', fontSize: 22, fontWeight: 700, lineHeight: 1, padding: 6, background: 'transparent', border: 'none', cursor: 'pointer'}}
                     >
                         &times;
                     </button>
