@@ -21,13 +21,30 @@ const UserLogin = () => {
 
       console.log(response.data);
 
-      // 🟢 SAVES USER DETAILS FOR NAVBAR RIGHT HERE
-      if (response.data.user) {
-        localStorage.setItem('user', JSON.stringify(response.data.user));
-        localStorage.setItem('userType', 'user');
-      }
+      // ==================== 🟢 IMPLEMENTATION START ====================
+      // Check if the response was successful (either success property is true OR HTTP status is 200)
+      if (response.data?.success || response.status === 200) {
+        
+        // Extract user data from response (handles both response.data.user or root response.data)
+        const user = response.data.user || response.data;
+        
+        // Extract token from response (checks multiple possible key names)
+        const token = response.data.token || response.data.userToken || user.token;
 
-      navigate("/"); // Redirect to home after login
+        // Save user object and user type in localStorage
+        localStorage.setItem('user', JSON.stringify(user));
+        localStorage.setItem('userType', 'user');
+        
+        // Save the authentication token in localStorage if present
+        if (token) {
+          localStorage.setItem('token', token);
+        }
+
+        // Redirect user to the home page after successful login
+        navigate('/');
+      }
+      // ==================== 🟢 IMPLEMENTATION END ======================
+
     } catch (error) {
       console.error("Login failed:", error.response?.data || error.message);
     }
