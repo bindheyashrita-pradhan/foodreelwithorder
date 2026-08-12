@@ -14,8 +14,14 @@ router.post('/create', authUserMiddleware, async (req, res) => {
     try {
         const { foodId, foodPartnerId, portion, price, quantity, phone, deliveryAddress } = req.body;
 
+        const userId = req.user?._id || req.user?.id || req.user;
+
+        if (!userId) {
+            return res.status(401).json({ success: false, message: 'User authentication required.' });
+        }
+
         const newOrder = await Order.create({
-            user: req.user._id,
+            user: userId,
             food: foodId,
             foodPartner: foodPartnerId,
             portion,
@@ -27,6 +33,7 @@ router.post('/create', authUserMiddleware, async (req, res) => {
 
         res.status(201).json({ success: true, order: newOrder });
     } catch (error) {
+        console.error("Error creating order:", error);
         res.status(500).json({ success: false, message: error.message });
     }
 });
@@ -34,14 +41,28 @@ router.post('/create', authUserMiddleware, async (req, res) => {
 // Get all orders for a logged-in customer
 router.get('/my-orders', authUserMiddleware, async (req, res) => {
     try {
-        const userId = req.user._id || req.user.id;
-        const orders = await Order.find({ user: userId })
-            .populate('food')
-            .populate('foodPartner', 'name restaurantName')
-            .sort({ createdAt: -1 });
+        const userId = req.user?._id || req.user?.id || req.user;
+
+        if (!userId) {
+            return res.status(401).json({ success: false, message: 'User authentication required.' });
+        }
+
+        // Fetch orders and populate safely
+        let orders = await Order.find({ user: userId }).sort({ createdAt: -1 });
+
+        // Attempt population safely to prevent 500 errors if model names differ
+        try {
+            orders = await Order.find({ user: userId })
+                .populate('food')
+                .populate('foodPartner', 'name restaurantName')
+                .sort({ createdAt: -1 });
+        } catch (popError) {
+            console.warn("Population fallback warning:", popError.message);
+        }
 
         res.status(200).json({ success: true, orders });
     } catch (error) {
+        console.error("GET /my-orders server error:", error);
         res.status(500).json({ success: false, message: error.message });
     }
 });
@@ -51,13 +72,22 @@ router.get('/my-orders', authUserMiddleware, async (req, res) => {
 // Get all orders received by the logged-in food partner
 router.get('/partner-orders', authFoodPartnerMiddleware, async (req, res) => {
     try {
-        const orders = await Order.find({ foodPartner: req.foodPartner._id })
-            .populate('food')
-            .populate('user', 'name email')
-            .sort({ createdAt: -1 });
+        const partnerId = req.foodPartner?._id || req.foodPartner?.id || req.foodPartner;
+
+        let orders = await Order.find({ foodPartner: partnerId }).sort({ createdAt: -1 });
+
+        try {
+            orders = await Order.find({ foodPartner: partnerId })
+                .populate('food')
+                .populate('user', 'name email')
+                .sort({ createdAt: -1 });
+        } catch (popError) {
+            console.warn("Partner population fallback warning:", popError.message);
+        }
 
         res.status(200).json({ success: true, orders });
     } catch (error) {
+        console.error("GET /partner-orders server error:", error);
         res.status(500).json({ success: false, message: error.message });
     }
 });
@@ -66,8 +96,10 @@ router.get('/partner-orders', authFoodPartnerMiddleware, async (req, res) => {
 router.patch('/:orderId/status', authFoodPartnerMiddleware, async (req, res) => {
     try {
         const { status } = req.body;
+        const partnerId = req.foodPartner?._id || req.foodPartner?.id || req.foodPartner;
+
         const order = await Order.findOneAndUpdate(
-            { _id: req.params.orderId, foodPartner: req.foodPartner._id },
+            { _id: req.params.orderId, foodPartner: partnerId },
             { status },
             { new: true }
         );
@@ -78,6 +110,7 @@ router.patch('/:orderId/status', authFoodPartnerMiddleware, async (req, res) => 
 
         res.status(200).json({ success: true, order });
     } catch (error) {
+        console.error("PATCH order status error:", error);
         res.status(500).json({ success: false, message: error.message });
     }
 });
