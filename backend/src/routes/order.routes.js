@@ -1,6 +1,17 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const Order = require('../models/order.model');
+
+// 🟢 FIX 1: Require models so Mongoose registers them for .populate()
+try {
+    require('../models/food.model');
+} catch (e) {
+    try { require('../models/fooditem.model'); } catch (err) {}
+}
+try {
+    require('../models/foodpartner.model');
+} catch (e) {}
+
 const { 
     authUserMiddleware, 
     authFoodPartnerMiddleware 
@@ -15,10 +26,14 @@ router.post('/create', authUserMiddleware, async (req, res) => {
     try {
         const { foodId, foodPartnerId, portion, price, quantity, phone, phoneNumber, deliveryAddress } = req.body;
 
-        const userId = req.user?._id || req.user?.id || req.user;
-        if (!userId) {
+        const rawUserId = req.user?._id || req.user?.id || req.user;
+        if (!rawUserId) {
             return res.status(401).json({ success: false, message: 'User authentication required.' });
         }
+
+        const validUserId = mongoose.Types.ObjectId.isValid(rawUserId)
+            ? new mongoose.Types.ObjectId(rawUserId)
+            : rawUserId;
 
         const validPartnerId = mongoose.Types.ObjectId.isValid(foodPartnerId)
             ? new mongoose.Types.ObjectId(foodPartnerId)
@@ -27,7 +42,7 @@ router.post('/create', authUserMiddleware, async (req, res) => {
         const contactPhone = phone || phoneNumber || '';
 
         const newOrder = await Order.create({
-            user: userId,
+            user: validUserId,
             food: foodId,
             foodPartner: validPartnerId,
             portion: portion || 'Standard',
@@ -45,22 +60,42 @@ router.post('/create', authUserMiddleware, async (req, res) => {
     }
 });
 
-// Get all orders for logged-in customer
+// 🟢 FIX 2: Get all orders for logged-in customer (with robust population & ID matching)
 router.get('/my-orders', authUserMiddleware, async (req, res) => {
     try {
-        const userId = req.user?._id || req.user?.id || req.user;
-        if (!userId) {
+        const rawUserId = req.user?._id || req.user?.id || req.user;
+        if (!rawUserId) {
             return res.status(401).json({ success: false, message: 'User authentication required.' });
         }
 
+        // Handle both string ID and ObjectId
+        const userObjectId = mongoose.Types.ObjectId.isValid(rawUserId)
+            ? new mongoose.Types.ObjectId(rawUserId)
+            : rawUserId;
+
         let orders = [];
         try {
-            orders = await Order.find({ user: userId })
-                .populate('food')
-                .populate('foodPartner', 'name restaurantName')
-                .sort({ createdAt: -1 });
+            // Find orders using flexible user ID matching + population
+            orders = await Order.find({
+                $or: [
+                    { user: userObjectId },
+                    { user: rawUserId.toString() }
+                ]
+            })
+            .populate('food') // Populates Food document (name, image, etc.)
+            .populate('foodPartner', 'name restaurantName')
+            .sort({ createdAt: -1 });
+
         } catch (popError) {
-            orders = await Order.find({ user: userId }).sort({ createdAt: -1 });
+            console.warn("Population warning in /my-orders:", popError.message);
+            
+            // Fallback query if populate fails
+            orders = await Order.find({
+                $or: [
+                    { user: userObjectId },
+                    { user: rawUserId.toString() }
+                ]
+            }).sort({ createdAt: -1 });
         }
 
         res.status(200).json({ success: true, orders });
@@ -84,13 +119,7 @@ router.get('/partner-orders', authFoodPartnerMiddleware, async (req, res) => {
             ? new mongoose.Types.ObjectId(rawPartnerId)
             : rawPartnerId;
 
-        let orders = await Order.find({
-            $or: [
-                { foodPartner: partnerObjectId },
-                { foodPartner: rawPartnerId.toString() }
-            ]
-        }).sort({ createdAt: -1 });
-
+        let orders = [];
         try {
             orders = await Order.find({
                 $or: [
@@ -99,10 +128,16 @@ router.get('/partner-orders', authFoodPartnerMiddleware, async (req, res) => {
                 ]
             })
             .populate('food')
-            .populate('user', 'name email')
+            .populate('user', 'name email phone')
             .sort({ createdAt: -1 });
         } catch (popErr) {
-            console.warn("Population fallback warning:", popErr.message);
+            console.warn("Population fallback warning in /partner-orders:", popErr.message);
+            orders = await Order.find({
+                $or: [
+                    { foodPartner: partnerObjectId },
+                    { foodPartner: rawPartnerId.toString() }
+                ]
+            }).sort({ createdAt: -1 });
         }
 
         res.status(200).json({ success: true, orders });
@@ -133,9 +168,7 @@ router.patch('/:orderId/status', authFoodPartnerMiddleware, async (req, res) => 
     }
 });
 
-
-
-// Delete an order (Allowed for both the Customer who placed it AND the Food Partner who received it)
+// Delete an order
 router.delete('/:orderId', async (req, res) => {
     try {
         const { orderId } = req.params;
@@ -145,11 +178,6 @@ router.delete('/:orderId', async (req, res) => {
             return res.status(404).json({ success: false, message: 'Order not found' });
         }
 
-        // Extract user or partner ID from req object or Authorization token header/cookies
-        const userId = req.user?._id || req.user?.id || req.user;
-        const partnerId = req.foodPartner?._id || req.foodPartner?.id || req.foodPartner;
-
-        // Perform deletion
         await Order.findByIdAndDelete(orderId);
 
         res.status(200).json({ success: true, message: 'Order deleted successfully' });
