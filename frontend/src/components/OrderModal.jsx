@@ -20,34 +20,6 @@ const OrderModal = ({ foodItem, onClose }) => {
     const handlePlaceOrder = async (e) => {
         e.preventDefault();
 
-        // Debug: Log all keys in localStorage to find where the token lives
-        console.log("Current localStorage contents:", { ...localStorage });
-
-        // Retrieve saved user object if present
-        let parsedUserToken = null;
-        const savedUserStr = localStorage.getItem('user');
-        if (savedUserStr) {
-            try {
-                const parsed = JSON.parse(savedUserStr);
-                parsedUserToken = parsed.token || parsed.userToken || parsed.authToken || parsed.accessToken;
-            } catch (err) {
-                // Ignore parsing errors
-            }
-        }
-
-        // Search every possible location for the JWT token
-        const token = localStorage.getItem('token') || 
-                      localStorage.getItem('userToken') || 
-                      localStorage.getItem('authToken') || 
-                      localStorage.getItem('partnerToken') || 
-                      localStorage.getItem('accessToken') || 
-                      parsedUserToken;
-
-        if (!token) {
-            console.error("No token found in localStorage keys or user object.");
-            return alert('Please log in as a customer first before placing an order.');
-        }
-
         if (!phone.trim() || !address.trim()) {
             return alert('Please fill in both your phone number and delivery address.');
         }
@@ -58,6 +30,16 @@ const OrderModal = ({ foodItem, onClose }) => {
 
         if (!partnerId) {
             return alert('Unable to detect restaurant partner for this item.');
+        }
+
+        // Optional token fallback if stored in localStorage
+        const token = localStorage.getItem('token') || 
+                      localStorage.getItem('userToken') || 
+                      localStorage.getItem('partnerToken');
+
+        const headers = {};
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
         }
 
         setLoading(true);
@@ -74,8 +56,8 @@ const OrderModal = ({ foodItem, onClose }) => {
                     deliveryAddress: address
                 },
                 { 
-                    headers: { Authorization: `Bearer ${token}` },
-                    withCredentials: true 
+                    headers,
+                    withCredentials: true // Sends HttpOnly auth cookie to backend automatically
                 }
             );
 
@@ -85,7 +67,8 @@ const OrderModal = ({ foodItem, onClose }) => {
             }
         } catch (err) {
             console.error("Order submit error:", err);
-            alert(err.response?.data?.message || 'Failed to place order.');
+            const errorMsg = err.response?.data?.message || 'Failed to place order. Please verify you are logged in.';
+            alert(errorMsg);
         } finally {
             setLoading(false);
         }
