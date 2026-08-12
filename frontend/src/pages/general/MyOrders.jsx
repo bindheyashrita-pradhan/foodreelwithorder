@@ -1,30 +1,40 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 
 const OrderModal = ({ foodItem, onClose }) => {
-    // 🛑 GUARD 1: Prevent ghost modal from rendering on /my-orders or empty selection
-    if (!foodItem || (!foodItem._id && !foodItem.name && !foodItem.title)) {
+    // 🛑 GUARD: Prevent ghost modal from rendering on empty/invalid selection
+    if (!foodItem || (!foodItem._id && !foodItem.name && !foodItem.title && !foodItem.foodName)) {
         return null;
     }
 
     const itemName = foodItem.name || foodItem.title || foodItem.foodName || 'Food Item';
 
-    // Helper: Safely normalize portion sizes from any MongoDB format
-    const getNormalizedPortions = (item) => {
+    // Helper: Safely normalize portion sizes from any MongoDB / Mongoose format
+    const normalizePortions = (item) => {
         if (!item || !item.portions) {
-            return [{ name: 'Standard / Full', price: Number(item?.price || 150) }];
+            const fallbackPrice = Number(item?.price || item?.basePrice || 150);
+            return [{ name: 'Standard / Full', price: isNaN(fallbackPrice) ? 150 : fallbackPrice }];
         }
 
         let rawPortions = item.portions;
 
-        // Convert Mongoose Map to object if needed
+        // 1. If stored as a Mongoose Map
         if (typeof rawPortions?.toObject === 'function') {
             rawPortions = rawPortions.toObject();
         }
 
-        // 1. Array format: [{ name: 'Small', price: 200 }, ...]
+        // 2. If stored as a JSON string
+        if (typeof rawPortions === 'string') {
+            try {
+                rawPortions = JSON.parse(rawPortions);
+            } catch (err) {
+                rawPortions = null;
+            }
+        }
+
+        // 3. Handle Array format: [{ name: 'Small', price: 200 }, ...]
         if (Array.isArray(rawPortions) && rawPortions.length > 0) {
-            return rawPortions.map(p => {
+            const parsedArray = rawPortions.map(p => {
                 if (typeof p === 'object' && p !== null) {
                     return {
                         name: String(p.name || p.portion || p.label || 'Portion'),
@@ -32,33 +42,47 @@ const OrderModal = ({ foodItem, onClose }) => {
                     };
                 }
                 return { name: `Portion (${p})`, price: Number(p) };
-            });
+            }).filter(p => !isNaN(p.price) && p.price > 0);
+
+            if (parsedArray.length > 0) return parsedArray;
         }
 
-        // 2. Object format: { small: 200, medium: 250, large: 300 }
+        // 4. Handle Object format: { small: 200, medium: 250, large: 300 }
         if (typeof rawPortions === 'object' && rawPortions !== null) {
             const entries = Object.entries(rawPortions);
             if (entries.length > 0) {
-                const result = entries
+                const parsedObject = entries
                     .filter(([_, val]) => val !== undefined && val !== null && !isNaN(Number(val)) && Number(val) > 0)
                     .map(([key, val]) => ({
                         name: String(key).charAt(0).toUpperCase() + String(key).slice(1),
                         price: Number(val)
                     }));
-                if (result.length > 0) return result;
+
+                if (parsedObject.length > 0) return parsedObject;
             }
         }
 
         const basePrice = Number(item.price || item.basePrice || 150);
-        return [{ name: 'Standard / Full', price: basePrice }];
+        return [{ name: 'Standard / Full', price: isNaN(basePrice) ? 150 : basePrice }];
     };
 
-    const availablePortions = getNormalizedPortions(foodItem);
+    // Calculate available portions whenever foodItem changes
+    const availablePortions = useMemo(() => normalizePortions(foodItem), [foodItem]);
+
     const [selectedPortion, setSelectedPortion] = useState(availablePortions[0]);
     const [quantity, setQuantity] = useState(1);
     const [phone, setPhone] = useState('');
     const [address, setAddress] = useState('');
     const [loading, setLoading] = useState(false);
+
+    // Re-sync selected portion when foodItem changes
+    useEffect(() => {
+        const portions = normalizePortions(foodItem);
+        if (portions && portions.length > 0) {
+            setSelectedPortion(portions[0]);
+        }
+        setQuantity(1);
+    }, [foodItem]);
 
     const unitPrice = Number(selectedPortion?.price || foodItem?.price || 150);
     const totalPrice = unitPrice * quantity;
@@ -78,9 +102,20 @@ const OrderModal = ({ foodItem, onClose }) => {
             return alert('Unable to detect restaurant partner for this item.');
         }
 
+        // Retrieve authorization token
+        const savedUserStr = localStorage.getItem('user');
+        let parsedUserToken = null;
+        if (savedUserStr) {
+            try {
+                const parsed = JSON.parse(savedUserStr);
+                parsedUserToken = parsed.token || parsed.userToken;
+            } catch (err) { /* ignore */ }
+        }
+
         const token = localStorage.getItem('token') || 
                       localStorage.getItem('userToken') || 
-                      localStorage.getItem('partnerToken');
+                      localStorage.getItem('partnerToken') || 
+                      parsedUserToken;
 
         const headers = {};
         if (token) {
@@ -98,8 +133,8 @@ const OrderModal = ({ foodItem, onClose }) => {
                     portion: selectedPortion?.name || 'Standard',
                     price: totalPrice,
                     quantity: quantity,
-                    phone: phone,
-                    deliveryAddress: address
+                    phone: phone.trim(),
+                    deliveryAddress: address.trim()
                 },
                 { 
                     headers,
@@ -217,7 +252,7 @@ const OrderModal = ({ foodItem, onClose }) => {
                                 Portion Size
                             </label>
                             <select 
-                                value={selectedPortion?.name}
+                                value={selectedPortion?.name || ''}
                                 onChange={(e) => {
                                     const selected = availablePortions.find(p => p.name === e.target.value);
                                     if (selected) setSelectedPortion(selected);
