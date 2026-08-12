@@ -110,7 +110,7 @@ const PartnerOrders = () => {
                                     <div><strong>Portion:</strong> {order.portion}</div>
                                     <div><strong>Quantity:</strong> {order.quantity}</div>
                                     <div><strong>Total Price:</strong> ₹{order.price}</div>
-                                    <div><strong>Customer Phone:</strong> {order.phone || 'N/A'}</div>
+                                    <div><strong>Customer Phone:</strong> {order.phone || order.phoneNumber || 'N/A'}</div>
                                     <div style={{ gridColumn: 'span 2', marginTop: 4 }}><strong>Delivery Address:</strong> {order.deliveryAddress}</div>
                                 </div>
 

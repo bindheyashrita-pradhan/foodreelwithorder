@@ -3,40 +3,47 @@ const mongoose = require('mongoose');
 const orderSchema = new mongoose.Schema({
     user: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'user',
+        ref: 'user', // adjust ref name if your user model is 'User'
         required: true
     },
     food: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'food',
+        ref: 'food', // adjust ref name if your food model is 'Food'
         required: true
     },
     foodPartner: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'foodpartner',
+        ref: 'foodpartner', // adjust ref name if needed
         required: true
     },
     portion: {
-        type: String, // Fixed: Changed from Number to String for portion names
-        required: true
+        type: String,
+        default: 'Standard'
     },
     price: {
-        type: Number, // Added missing price field
+        type: Number,
         required: true
     },
     quantity: {
         type: Number,
-        required: true, // Fixed: Corrected typo 'reuired'
         default: 1
     },
-    status: {
+    phone: {
         type: String,
-        enum: ['Pending', 'Accepted', 'Rejected', 'Completed', 'cancelled'],
-        default: 'Pending'
+        required: false
+    },
+    phoneNumber: {
+        type: String,
+        required: false
     },
     deliveryAddress: {
         type: String,
         required: true
+    },
+    status: {
+        type: String,
+        enum: ['Pending', 'Accepted', 'Rejected', 'Completed', 'Cancelled'],
+        default: 'Pending'
     }
 }, { timestamps: true });
 
