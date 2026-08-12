@@ -2,28 +2,29 @@ const foodPartnerModel = require("../models/foodpartner.model");
 const userModel = require("../models/user.model");
 const jwt = require('jsonwebtoken');
 
-// ==================== 🟢 IMPLEMENTATION: ENHANCED TOKEN EXTRACTION ====================
-// Helper to extract JWT token: Checks Authorization header first, then falls back to cookies
-const extractToken = (req) => {
-    // 1. Check Authorization header (supports both lowercase 'authorization' & uppercase 'Authorization')
+// ==================== 🟢 HELPER: ENHANCED TOKEN EXTRACTION ====================
+const extractToken = (req, preferredCookieKey = null) => {
+    // 1. Check Authorization header (supports 'authorization' & 'Authorization')
     const authHeader = req.headers.authorization || req.headers.Authorization;
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-        return authHeader.split(' ')[1];
+    if (authHeader && typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) {
+        const token = authHeader.split(' ')[1];
+        if (token) return token.trim();
     }
 
-    // 2. Fallback to cookies (token / userToken / partnerToken)
+    // 2. Fallback to cookies
     if (req.cookies) {
-        if (req.cookies.token) return req.cookies.token;
-        if (req.cookies.userToken) return req.cookies.userToken;
-        if (req.cookies.partnerToken) return req.cookies.partnerToken;
+        if (preferredCookieKey && req.cookies[preferredCookieKey]) {
+            return req.cookies[preferredCookieKey];
+        }
+        return req.cookies.token || req.cookies.userToken || req.cookies.partnerToken || null;
     }
 
     return null;
 };
-// ======================================================================================
 
+// ==================== 🟢 FOOD PARTNER AUTH MIDDLEWARE ====================
 async function authFoodPartnerMiddleware(req, res, next) {
-    const token = extractToken(req);
+    const token = extractToken(req, 'partnerToken');
 
     if (!token) {
         return res.status(401).json({
@@ -34,13 +35,19 @@ async function authFoodPartnerMiddleware(req, res, next) {
 
     try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        const foodPartner = await foodPartnerModel.findById(decoded.id || decoded._id);
+        const partnerId = decoded._id || decoded.id || decoded.partnerId || decoded.foodPartnerId;
 
-        if (!foodPartner) {
+        let foodPartner = null;
+        if (partnerId) {
+            foodPartner = await foodPartnerModel.findById(partnerId).select('-password');
+        }
+
+        if (!foodPartner && !partnerId) {
             return res.status(401).json({ success: false, message: "Food partner not found." });
         }
 
-        req.foodPartner = foodPartner;
+        // Attach food partner document (or decoded payload fallback)
+        req.foodPartner = foodPartner || decoded;
         next();
     } catch (error) {
         console.error("Auth partner middleware error:", error.message);
@@ -51,37 +58,39 @@ async function authFoodPartnerMiddleware(req, res, next) {
     }
 }
 
-// ==================== 🟢 IMPLEMENTATION: UPDATED USER AUTH MIDDLEWARE ====================
+// ==================== 🟢 USER AUTH MIDDLEWARE ====================
 async function authUserMiddleware(req, res, next) {
-    try {
-        // 1. Extract token (Header Bearer check first, then Cookies fallback)
-        const token = extractToken(req);
+    const token = extractToken(req, 'userToken');
 
-        if (!token) {
-            return res.status(401).json({
-                success: false,
-                message: "Authentication required. No token provided."
-            });
+    if (!token) {
+        return res.status(401).json({
+            success: false,
+            message: "Authentication required. No token provided."
+        });
+    }
+
+    try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const userId = decoded._id || decoded.id || decoded.userId;
+
+        let user = null;
+        if (userId) {
+            user = await userModel.findById(userId).select('-password');
         }
 
-        // 2. Verify token
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-        // 3. Fetch user from DB or attach decoded payload to req.user
-        const user = await userModel.findById(decoded.id || decoded._id);
+        // Attach user document or decoded payload
         req.user = user || decoded;
-
         next();
     } catch (error) {
-        console.error("Auth middleware error:", error.message);
+        console.error("Auth user middleware error:", error.message);
         return res.status(401).json({
             success: false,
             message: "Invalid or expired token."
         });
     }
 }
-// =========================================================================================
 
+// ==================== 🟢 EXPORTS ====================
 module.exports = {
     authFoodPartnerMiddleware,
     authUserMiddleware,

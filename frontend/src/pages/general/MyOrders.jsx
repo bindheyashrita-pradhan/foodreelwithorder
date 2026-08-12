@@ -7,7 +7,7 @@ const MyOrders = () => {
 
     const fetchMyOrders = async () => {
         try {
-            // Retrieve token from localStorage or nested user object
+            // 1. Get user object from localStorage
             const savedUserStr = localStorage.getItem('user');
             let parsedUserToken = null;
             if (savedUserStr) {
@@ -17,6 +17,7 @@ const MyOrders = () => {
                 } catch (err) { /* ignore */ }
             }
 
+            // 2. Resolve token from all potential storage keys
             const token = localStorage.getItem('token') || 
                           localStorage.getItem('userToken') || 
                           localStorage.getItem('authToken') || 
@@ -27,8 +28,9 @@ const MyOrders = () => {
                 headers['Authorization'] = `Bearer ${token}`;
             }
 
+            const baseUrl = import.meta.env.VITE_API_URL || '';
             const res = await axios.get(
-                `${import.meta.env.VITE_API_URL}/api/orders/my-orders`,
+                `${baseUrl}/api/orders/my-orders`,
                 {
                     headers,
                     withCredentials: true
@@ -57,8 +59,9 @@ const MyOrders = () => {
             const headers = {};
             if (token) headers['Authorization'] = `Bearer ${token}`;
 
+            const baseUrl = import.meta.env.VITE_API_URL || '';
             const res = await axios.delete(
-                `${import.meta.env.VITE_API_URL}/api/orders/${orderId}`,
+                `${baseUrl}/api/orders/${orderId}`,
                 { headers, withCredentials: true }
             );
 
