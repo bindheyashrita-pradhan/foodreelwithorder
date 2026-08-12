@@ -3,7 +3,6 @@ const router = express.Router();
 const FoodPartner = require('../models/foodpartner.model'); // adjust path if needed
 const Food = require('../models/food.model'); // adjust path if needed
 
-// Get partner profile details + their uploaded food videos
 router.get('/:id', async (req, res) => {
     try {
         const partnerId = req.params.id;
@@ -13,19 +12,19 @@ router.get('/:id', async (req, res) => {
             return res.status(404).json({ success: false, message: 'Food Partner not found' });
         }
 
-        // Fetch all food items created by this partner
+        // Fetch all food items uploaded by this partner
         const foodItems = await Food.find({ foodPartner: partnerId }).sort({ createdAt: -1 });
 
         res.status(200).json({
             success: true,
             foodPartner: {
                 ...partner.toObject(),
-                foodItems: foodItems,
+                foodItems,
                 fooditems: foodItems
             }
         });
     } catch (error) {
-        console.error("Error fetching partner profile:", error);
+        console.error("Error fetching food partner profile:", error);
         res.status(500).json({ success: false, message: error.message });
     }
 });

@@ -3,17 +3,17 @@ const mongoose = require('mongoose');
 const orderSchema = new mongoose.Schema({
     user: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'user', // adjust ref name if your user model is 'User'
+        ref: 'user',
         required: true
     },
     food: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'food', // adjust ref name if your food model is 'Food'
+        ref: 'food',
         required: true
     },
     foodPartner: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'foodpartner', // adjust ref name if needed
+        ref: 'foodpartner',
         required: true
     },
     portion: {

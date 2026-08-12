@@ -13,27 +13,28 @@ const router = express.Router();
 // Place a new order
 router.post('/create', authUserMiddleware, async (req, res) => {
     try {
-        const { foodId, foodPartnerId, portion, price, quantity, phone, deliveryAddress } = req.body;
+        const { foodId, foodPartnerId, portion, price, quantity, phone, phoneNumber, deliveryAddress } = req.body;
 
         const userId = req.user?._id || req.user?.id || req.user;
-
         if (!userId) {
             return res.status(401).json({ success: false, message: 'User authentication required.' });
         }
 
-        // Ensure partner ID is saved as a proper Mongo ObjectId
         const validPartnerId = mongoose.Types.ObjectId.isValid(foodPartnerId)
             ? new mongoose.Types.ObjectId(foodPartnerId)
             : foodPartnerId;
+
+        const contactPhone = phone || phoneNumber || '';
 
         const newOrder = await Order.create({
             user: userId,
             food: foodId,
             foodPartner: validPartnerId,
-            portion,
+            portion: portion || 'Standard',
             price,
             quantity: quantity || 1,
-            phone,
+            phone: contactPhone,
+            phoneNumber: contactPhone,
             deliveryAddress
         });
 
@@ -44,11 +45,10 @@ router.post('/create', authUserMiddleware, async (req, res) => {
     }
 });
 
-// Get all orders for a logged-in customer
+// Get all orders for logged-in customer
 router.get('/my-orders', authUserMiddleware, async (req, res) => {
     try {
         const userId = req.user?._id || req.user?.id || req.user;
-
         if (!userId) {
             return res.status(401).json({ success: false, message: 'User authentication required.' });
         }
@@ -65,18 +65,17 @@ router.get('/my-orders', authUserMiddleware, async (req, res) => {
 
         res.status(200).json({ success: true, orders });
     } catch (error) {
-        console.error("GET /my-orders server error:", error);
+        console.error("GET /my-orders error:", error);
         res.status(500).json({ success: false, message: error.message });
     }
 });
 
 // ---------------- FOOD PARTNER ROUTES ----------------
 
-// Get all orders received by the logged-in food partner
+// Get all orders received by logged-in food partner
 router.get('/partner-orders', authFoodPartnerMiddleware, async (req, res) => {
     try {
         const rawPartnerId = req.foodPartner?._id || req.foodPartner?.id || req.foodPartner;
-
         if (!rawPartnerId) {
             return res.status(401).json({ success: false, message: 'Partner authentication required.' });
         }
@@ -85,7 +84,6 @@ router.get('/partner-orders', authFoodPartnerMiddleware, async (req, res) => {
             ? new mongoose.Types.ObjectId(rawPartnerId)
             : rawPartnerId;
 
-        // Search both by ObjectId and string ID to match any existing orders
         let orders = await Order.find({
             $or: [
                 { foodPartner: partnerObjectId },
@@ -104,12 +102,12 @@ router.get('/partner-orders', authFoodPartnerMiddleware, async (req, res) => {
             .populate('user', 'name email')
             .sort({ createdAt: -1 });
         } catch (popErr) {
-            console.warn("Population fallback warning on partner-orders:", popErr.message);
+            console.warn("Population fallback warning:", popErr.message);
         }
 
         res.status(200).json({ success: true, orders });
     } catch (error) {
-        console.error("GET /partner-orders server error:", error);
+        console.error("GET /partner-orders error:", error);
         res.status(500).json({ success: false, message: error.message });
     }
 });
@@ -118,10 +116,8 @@ router.get('/partner-orders', authFoodPartnerMiddleware, async (req, res) => {
 router.patch('/:orderId/status', authFoodPartnerMiddleware, async (req, res) => {
     try {
         const { status } = req.body;
-        const rawPartnerId = req.foodPartner?._id || req.foodPartner?.id || req.foodPartner;
-
-        const order = await Order.findOneAndUpdate(
-            { _id: req.params.orderId },
+        const order = await Order.findByIdAndUpdate(
+            req.params.orderId,
             { status },
             { new: true }
         );
