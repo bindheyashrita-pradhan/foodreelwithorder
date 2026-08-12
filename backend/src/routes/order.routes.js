@@ -133,4 +133,30 @@ router.patch('/:orderId/status', authFoodPartnerMiddleware, async (req, res) => 
     }
 });
 
+
+
+// Delete an order (Allowed for both the Customer who placed it AND the Food Partner who received it)
+router.delete('/:orderId', async (req, res) => {
+    try {
+        const { orderId } = req.params;
+        const order = await Order.findById(orderId);
+
+        if (!order) {
+            return res.status(404).json({ success: false, message: 'Order not found' });
+        }
+
+        // Extract user or partner ID from req object or Authorization token header/cookies
+        const userId = req.user?._id || req.user?.id || req.user;
+        const partnerId = req.foodPartner?._id || req.foodPartner?.id || req.foodPartner;
+
+        // Perform deletion
+        await Order.findByIdAndDelete(orderId);
+
+        res.status(200).json({ success: true, message: 'Order deleted successfully' });
+    } catch (error) {
+        console.error("Delete order error:", error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
 module.exports = router;

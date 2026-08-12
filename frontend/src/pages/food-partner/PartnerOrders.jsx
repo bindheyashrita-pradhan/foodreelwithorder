@@ -12,19 +12,12 @@ const PartnerOrders = () => {
                           localStorage.getItem('userToken');
 
             const headers = {};
-            if (token) {
-                headers['Authorization'] = `Bearer ${token}`;
-            }
+            if (token) headers['Authorization'] = `Bearer ${token}`;
 
             const res = await axios.get(
                 `${import.meta.env.VITE_API_URL}/api/orders/partner-orders`,
-                { 
-                    headers,
-                    withCredentials: true 
-                }
+                { headers, withCredentials: true }
             );
-
-            console.log("Partner orders response:", res.data);
 
             if (res.data?.success) {
                 setOrders(res.data.orders || []);
@@ -42,22 +35,14 @@ const PartnerOrders = () => {
 
     const updateOrderStatus = async (orderId, newStatus) => {
         try {
-            const token = localStorage.getItem('token') || 
-                          localStorage.getItem('partnerToken') || 
-                          localStorage.getItem('userToken');
-
+            const token = localStorage.getItem('token') || localStorage.getItem('partnerToken');
             const headers = {};
-            if (token) {
-                headers['Authorization'] = `Bearer ${token}`;
-            }
+            if (token) headers['Authorization'] = `Bearer ${token}`;
 
             const res = await axios.patch(
                 `${import.meta.env.VITE_API_URL}/api/orders/${orderId}/status`,
                 { status: newStatus },
-                { 
-                    headers,
-                    withCredentials: true 
-                }
+                { headers, withCredentials: true }
             );
 
             if (res.data?.success) {
@@ -68,8 +53,30 @@ const PartnerOrders = () => {
         }
     };
 
+    const handleDeleteOrder = async (orderId) => {
+        if (!window.confirm("Are you sure you want to remove this order from your dashboard?")) return;
+
+        try {
+            const token = localStorage.getItem('token') || localStorage.getItem('partnerToken');
+            const headers = {};
+            if (token) headers['Authorization'] = `Bearer ${token}`;
+
+            const res = await axios.delete(
+                `${import.meta.env.VITE_API_URL}/api/orders/${orderId}`,
+                { headers, withCredentials: true }
+            );
+
+            if (res.data?.success) {
+                alert('Order deleted successfully');
+                setOrders(prev => prev.filter(order => order._id !== orderId));
+            }
+        } catch (err) {
+            alert(err.response?.data?.message || 'Failed to delete order');
+        }
+    };
+
     if (loading) {
-        return <div style={{ color: '#000', textAlign: 'center', padding: 60, fontFamily: 'system-ui', fontWeight: 600 }}>Loading incoming orders...</div>;
+        return <div style={{ color: '#fff', textAlign: 'center', padding: 60, fontFamily: 'system-ui' }}>Loading incoming orders...</div>;
     }
 
     return (
@@ -114,22 +121,39 @@ const PartnerOrders = () => {
                                     <div style={{ gridColumn: 'span 2', marginTop: 4 }}><strong>Delivery Address:</strong> {order.deliveryAddress}</div>
                                 </div>
 
-                                {order.status === 'Pending' && (
-                                    <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
-                                        <button 
-                                            onClick={() => updateOrderStatus(order._id, 'Accepted')}
-                                            style={{ flex: 1, padding: '10px', background: '#22c55e', color: '#000', fontWeight: 700, border: 'none', borderRadius: 8, cursor: 'pointer' }}
-                                        >
-                                            Accept Order
-                                        </button>
-                                        <button 
-                                            onClick={() => updateOrderStatus(order._id, 'Rejected')}
-                                            style={{ flex: 1, padding: '10px', background: '#3f3f46', color: '#ef4444', fontWeight: 700, border: 'none', borderRadius: 8, cursor: 'pointer' }}
-                                        >
-                                            Reject Order
-                                        </button>
-                                    </div>
-                                )}
+                                <div style={{ display: 'flex', gap: 10, marginTop: 14, flexWrap: 'wrap' }}>
+                                    {order.status === 'Pending' && (
+                                        <>
+                                            <button 
+                                                onClick={() => updateOrderStatus(order._id, 'Accepted')}
+                                                style={{ flex: 1, padding: '10px', background: '#22c55e', color: '#000', fontWeight: 700, border: 'none', borderRadius: 8, cursor: 'pointer' }}
+                                            >
+                                                Accept Order
+                                            </button>
+                                            <button 
+                                                onClick={() => updateOrderStatus(order._id, 'Rejected')}
+                                                style={{ flex: 1, padding: '10px', background: '#3f3f46', color: '#ef4444', fontWeight: 700, border: 'none', borderRadius: 8, cursor: 'pointer' }}
+                                            >
+                                                Reject Order
+                                            </button>
+                                        </>
+                                    )}
+
+                                    <button 
+                                        onClick={() => handleDeleteOrder(order._id)}
+                                        style={{ 
+                                            padding: '10px 16px', 
+                                            background: 'rgba(239, 68, 68, 0.15)', 
+                                            color: '#ef4444', 
+                                            fontWeight: 700, 
+                                            border: '1px solid rgba(239, 68, 68, 0.3)', 
+                                            borderRadius: 8, 
+                                            cursor: 'pointer' 
+                                        }}
+                                    >
+                                        🗑️ Delete
+                                    </button>
+                                </div>
                             </div>
                         ))}
                     </div>

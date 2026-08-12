@@ -12,19 +12,12 @@ const MyOrders = () => {
                           localStorage.getItem('authToken');
 
             const headers = {};
-            if (token) {
-                headers['Authorization'] = `Bearer ${token}`;
-            }
+            if (token) headers['Authorization'] = `Bearer ${token}`;
 
             const res = await axios.get(
                 `${import.meta.env.VITE_API_URL}/api/orders/my-orders`,
-                {
-                    headers,
-                    withCredentials: true
-                }
+                { headers, withCredentials: true }
             );
-
-            console.log("My orders response:", res.data);
 
             if (res.data?.success) {
                 setOrders(res.data.orders || []);
@@ -39,6 +32,28 @@ const MyOrders = () => {
     useEffect(() => {
         fetchMyOrders();
     }, []);
+
+    const handleDeleteOrder = async (orderId) => {
+        if (!window.confirm("Are you sure you want to delete this order?")) return;
+
+        try {
+            const token = localStorage.getItem('token') || localStorage.getItem('userToken');
+            const headers = {};
+            if (token) headers['Authorization'] = `Bearer ${token}`;
+
+            const res = await axios.delete(
+                `${import.meta.env.VITE_API_URL}/api/orders/${orderId}`,
+                { headers, withCredentials: true }
+            );
+
+            if (res.data?.success) {
+                alert('Order deleted successfully');
+                setOrders(prev => prev.filter(order => order._id !== orderId));
+            }
+        } catch (err) {
+            alert(err.response?.data?.message || 'Failed to delete order');
+        }
+    };
 
     const getStatusStyle = (status) => {
         switch (status) {
@@ -56,7 +71,7 @@ const MyOrders = () => {
 
     if (loading) {
         return (
-            <div style={{ color: '#000', textAlign: 'center', padding: 60, fontFamily: 'system-ui', fontWeight: 600 }}>
+            <div style={{ color: '#fff', textAlign: 'center', padding: 60, fontFamily: 'system-ui' }}>
                 Loading your orders...
             </div>
         );
@@ -91,7 +106,6 @@ const MyOrders = () => {
                                         boxShadow: '0 4px 12px rgba(0,0,0,0.3)' 
                                     }}
                                 >
-                                    {/* Order Header */}
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12, borderBottom: '1px solid #27272a', paddingBottom: 12 }}>
                                         <div>
                                             <span style={{ fontSize: 11, color: '#eab308', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
@@ -113,7 +127,6 @@ const MyOrders = () => {
                                         </span>
                                     </div>
 
-                                    {/* Order Details Grid */}
                                     <div style={{ fontSize: 13, color: '#d4d4d8', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                                         <div><strong>Portion:</strong> {order.portion}</div>
                                         <div><strong>Quantity:</strong> {order.quantity}</div>
@@ -122,6 +135,24 @@ const MyOrders = () => {
                                         <div style={{ gridColumn: 'span 2', marginTop: 4 }}>
                                             <strong>Delivery Address:</strong> {order.deliveryAddress}
                                         </div>
+                                    </div>
+
+                                    <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid #27272a', display: 'flex', justifyContent: 'flex-end' }}>
+                                        <button
+                                            onClick={() => handleDeleteOrder(order._id)}
+                                            style={{
+                                                backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                                                color: '#ef4444',
+                                                border: '1px solid rgba(239, 68, 68, 0.3)',
+                                                padding: '6px 14px',
+                                                borderRadius: 8,
+                                                fontSize: 12,
+                                                fontWeight: 700,
+                                                cursor: 'pointer'
+                                            }}
+                                        >
+                                            🗑️ Cancel / Delete Order
+                                        </button>
                                     </div>
                                 </div>
                             );
