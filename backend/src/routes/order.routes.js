@@ -34,7 +34,8 @@ router.post('/create', authUserMiddleware, async (req, res) => {
 // Get all orders for a logged-in customer
 router.get('/my-orders', authUserMiddleware, async (req, res) => {
     try {
-        const orders = await Order.find({ user: req.user._id })
+        const userId = req.user._id || req.user.id;
+        const orders = await Order.find({ user: userId })
             .populate('food')
             .populate('foodPartner', 'name restaurantName')
             .sort({ createdAt: -1 });
