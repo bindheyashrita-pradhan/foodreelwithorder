@@ -7,48 +7,42 @@ const UserLogin = () => {
 
   const navigate = useNavigate();
 
-  const handleSubmit = async (e) => {
+  // ==================== 🟢 IMPLEMENTATION: UPDATED LOGIN HANDLER ====================
+  const handleLogin = async (e) => {
     e.preventDefault();
 
     const email = e.target.email.value;
     const password = e.target.password.value;
 
     try {
-      const response = await axios.post(`${import.meta.env.VITE_API_URL}/api/auth/user/login`, {
-        email,
-        password
-      }, { withCredentials: true });
+      const res = await axios.post(
+        `${import.meta.env.VITE_API_URL}/api/auth/user/login`,
+        { email, password },
+        { withCredentials: true }
+      );
 
-      console.log(response.data);
+      // Check if response was successful
+      if (res.data?.success || res.status === 200) {
+        const user = res.data.user || res.data;
+        const token = res.data.token || res.data.userToken || user?.token;
 
-      // ==================== 🟢 IMPLEMENTATION START ====================
-      // Check if the response was successful (either success property is true OR HTTP status is 200)
-      if (response.data?.success || response.status === 200) {
-        
-        // Extract user data from response (handles both response.data.user or root response.data)
-        const user = response.data.user || response.data;
-        
-        // Extract token from response (checks multiple possible key names)
-        const token = response.data.token || response.data.userToken || user.token;
-
-        // Save user object and user type in localStorage
+        // Save both user data, userType, and raw token to localStorage
         localStorage.setItem('user', JSON.stringify(user));
         localStorage.setItem('userType', 'user');
         
-        // Save the authentication token in localStorage if present
         if (token) {
           localStorage.setItem('token', token);
         }
 
-        // Redirect user to the home page after successful login
         navigate('/');
       }
-      // ==================== 🟢 IMPLEMENTATION END ======================
-
-    } catch (error) {
-      console.error("Login failed:", error.response?.data || error.message);
+    } catch (err) {
+      console.error("Login error:", err);
+      // Alert the user with backend error message or fallback alert
+      alert(err.response?.data?.message || 'Login failed');
     }
   };
+  // ==================================================================================
 
   return (
     <div className="auth-page-wrapper">
@@ -57,14 +51,15 @@ const UserLogin = () => {
           <h1 id="user-login-title" className="auth-title">Welcome back</h1>
           <p className="auth-subtitle">Sign in to continue your food journey.</p>
         </header>
-        <form className="auth-form" onSubmit={handleSubmit} noValidate>
+        {/* Updated onSubmit handler to handleLogin */}
+        <form className="auth-form" onSubmit={handleLogin} noValidate>
           <div className="field-group">
             <label htmlFor="email">Email</label>
-            <input id="email" name="email" type="email" placeholder="you@example.com" autoComplete="email" />
+            <input id="email" name="email" type="email" placeholder="you@example.com" autoComplete="email" required />
           </div>
           <div className="field-group">
             <label htmlFor="password">Password</label>
-            <input id="password" name="password" type="password" placeholder="••••••••" autoComplete="current-password" />
+            <input id="password" name="password" type="password" placeholder="••••••••" autoComplete="current-password" required />
           </div>
           <button className="auth-submit" type="submit">Sign In</button>
         </form>

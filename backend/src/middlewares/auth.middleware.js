@@ -2,17 +2,22 @@ const foodPartnerModel = require("../models/foodpartner.model");
 const userModel = require("../models/user.model");
 const jwt = require('jsonwebtoken');
 
-// ==================== 🟢 IMPLEMENTATION: UPDATED TOKEN EXTRACTION ====================
-// Helper to extract JWT token from cookies (token, userToken, partnerToken) OR Authorization header
+// ==================== 🟢 IMPLEMENTATION: ENHANCED TOKEN EXTRACTION ====================
+// Helper to extract JWT token: Checks Authorization header first, then falls back to cookies
 const extractToken = (req) => {
+    // 1. Check Authorization header (supports both lowercase 'authorization' & uppercase 'Authorization')
+    const authHeader = req.headers.authorization || req.headers.Authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+        return authHeader.split(' ')[1];
+    }
+
+    // 2. Fallback to cookies (token / userToken / partnerToken)
     if (req.cookies) {
         if (req.cookies.token) return req.cookies.token;
         if (req.cookies.userToken) return req.cookies.userToken;
         if (req.cookies.partnerToken) return req.cookies.partnerToken;
     }
-    if (req.headers.authorization && req.headers.authorization.startsWith('Bearer ')) {
-        return req.headers.authorization.split(' ')[1];
-    }
+
     return null;
 };
 // ======================================================================================
@@ -23,7 +28,7 @@ async function authFoodPartnerMiddleware(req, res, next) {
     if (!token) {
         return res.status(401).json({
             success: false,
-            message: "Authentication required"
+            message: "Authentication required. No token provided."
         });
     }
 
@@ -32,50 +37,46 @@ async function authFoodPartnerMiddleware(req, res, next) {
         const foodPartner = await foodPartnerModel.findById(decoded.id || decoded._id);
 
         if (!foodPartner) {
-            return res.status(401).json({ success: false, message: "Food partner not found" });
+            return res.status(401).json({ success: false, message: "Food partner not found." });
         }
 
         req.foodPartner = foodPartner;
         next();
-    } catch (err) {
+    } catch (error) {
+        console.error("Auth partner middleware error:", error.message);
         return res.status(401).json({
             success: false,
-            message: "Invalid or expired token"
+            message: "Invalid or expired token."
         });
     }
 }
 
 // ==================== 🟢 IMPLEMENTATION: UPDATED USER AUTH MIDDLEWARE ====================
 async function authUserMiddleware(req, res, next) {
-    // 1. Get token from cookies (token / userToken) OR Authorization header
-    const token = extractToken(req);
-
-    if (!token) {
-        return res.status(401).json({
-            success: false,
-            message: "Authentication required"
-        });
-    }
-
     try {
-        // 2. Verify token
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        
-        // Fetch full user record from database (falls back to decoded payload if user not in DB)
-        const user = await userModel.findById(decoded.id || decoded._id);
+        // 1. Extract token (Header Bearer check first, then Cookies fallback)
+        const token = extractToken(req);
 
-        if (!user) {
-            // Attach decoded payload if user document isn't directly needed from DB
-            req.user = decoded;
-        } else {
-            req.user = user;
+        if (!token) {
+            return res.status(401).json({
+                success: false,
+                message: "Authentication required. No token provided."
+            });
         }
 
+        // 2. Verify token
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+        // 3. Fetch user from DB or attach decoded payload to req.user
+        const user = await userModel.findById(decoded.id || decoded._id);
+        req.user = user || decoded;
+
         next();
-    } catch (err) {
+    } catch (error) {
+        console.error("Auth middleware error:", error.message);
         return res.status(401).json({
             success: false,
-            message: "Invalid or expired token"
+            message: "Invalid or expired token."
         });
     }
 }

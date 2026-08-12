@@ -7,7 +7,7 @@ const MyOrders = () => {
 
     const fetchMyOrders = async () => {
         try {
-            // 1. Get user object from localStorage if present
+            // Retrieve token from localStorage or nested user object
             const savedUserStr = localStorage.getItem('user');
             let parsedUserToken = null;
             if (savedUserStr) {
@@ -17,7 +17,6 @@ const MyOrders = () => {
                 } catch (err) { /* ignore */ }
             }
 
-            // 2. Resolve token from all possible keys
             const token = localStorage.getItem('token') || 
                           localStorage.getItem('userToken') || 
                           localStorage.getItem('authToken') || 
@@ -28,7 +27,6 @@ const MyOrders = () => {
                 headers['Authorization'] = `Bearer ${token}`;
             }
 
-            // 3. Make API request with both Authorization header and credentials
             const res = await axios.get(
                 `${import.meta.env.VITE_API_URL}/api/orders/my-orders`,
                 {
