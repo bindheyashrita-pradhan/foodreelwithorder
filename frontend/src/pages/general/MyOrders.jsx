@@ -1,186 +1,351 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import axios from 'axios';
 
-const MyOrders = () => {
-    const [orders, setOrders] = useState([]);
-    const [loading, setLoading] = useState(true);
+const OrderModal = ({ foodItem, onClose }) => {
+    const itemName = foodItem?.name || foodItem?.title || foodItem?.foodName || 'Selected Food Item';
 
-    const fetchMyOrders = async () => {
+    // Helper: Normalize portion options from different database formats
+    const getNormalizedPortions = (item) => {
+        if (!item) return [{ name: 'Standard / Full', price: 150 }];
+
+        // 1. If portions is an array of objects [{ name: 'Half', price: 200 }, ...]
+        if (Array.isArray(item.portions) && item.portions.length > 0) {
+            return item.portions.map(p => typeof p === 'object' ? p : { name: `Portion (${p})`, price: Number(p) });
+        }
+
+        // 2. If portions was saved as an object { half: 200, medium: 250, full: 300 }
+        if (typeof item.portions === 'object' && item.portions !== null) {
+            const keys = Object.keys(item.portions);
+            if (keys.length > 0) {
+                return keys.map(k => ({
+                    name: k.charAt(0).toUpperCase() + k.slice(1),
+                    price: Number(item.portions[k])
+                })).filter(p => !isNaN(p.price) && p.price > 0);
+            }
+        }
+
+        // 3. Fallback to base price
+        const basePrice = Number(item.price || item.basePrice || 150);
+        return [{ name: 'Standard / Full', price: basePrice }];
+    };
+
+    const availablePortions = getNormalizedPortions(foodItem);
+    const [selectedPortion, setSelectedPortion] = useState(availablePortions[0]);
+    const [quantity, setQuantity] = useState(1);
+    const [phone, setPhone] = useState('');
+    const [address, setAddress] = useState('');
+    const [loading, setLoading] = useState(false);
+
+    const unitPrice = Number(selectedPortion?.price || foodItem?.price || 150);
+    const totalPrice = unitPrice * quantity;
+
+    const handlePlaceOrder = async (e) => {
+        e.preventDefault();
+
+        if (!phone.trim() || !address.trim()) {
+            return alert('Please fill in both your phone number and delivery address.');
+        }
+
+        const partnerId = typeof foodItem?.foodPartner === 'object' && foodItem?.foodPartner !== null
+            ? foodItem.foodPartner._id 
+            : (foodItem?.foodPartner || foodItem?.partnerId || foodItem?.foodPartnerId);
+
+        if (!partnerId) {
+            return alert('Unable to detect restaurant partner for this item.');
+        }
+
+        const token = localStorage.getItem('token') || 
+                      localStorage.getItem('userToken') || 
+                      localStorage.getItem('partnerToken');
+
+        const headers = {};
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
+
+        setLoading(true);
         try {
-            // 1. Get user object from localStorage
-            const savedUserStr = localStorage.getItem('user');
-            let parsedUserToken = null;
-            if (savedUserStr) {
-                try {
-                    const parsed = JSON.parse(savedUserStr);
-                    parsedUserToken = parsed.token || parsed.userToken;
-                } catch (err) { /* ignore */ }
-            }
-
-            // 2. Resolve token from all potential storage keys
-            const token = localStorage.getItem('token') || 
-                          localStorage.getItem('userToken') || 
-                          localStorage.getItem('authToken') || 
-                          parsedUserToken;
-
-            const headers = {};
-            if (token) {
-                headers['Authorization'] = `Bearer ${token}`;
-            }
-
-            const baseUrl = import.meta.env.VITE_API_URL || '';
-            const res = await axios.get(
-                `${baseUrl}/api/orders/my-orders`,
+            const res = await axios.post(
+                `${import.meta.env.VITE_API_URL}/api/orders/create`,
                 {
+                    foodId: foodItem._id,
+                    foodPartnerId: partnerId,
+                    portion: selectedPortion?.name || 'Standard',
+                    price: totalPrice,
+                    quantity: quantity,
+                    phone: phone,
+                    deliveryAddress: address
+                },
+                { 
                     headers,
-                    withCredentials: true
+                    withCredentials: true 
                 }
             );
 
             if (res.data?.success) {
-                setOrders(res.data.orders || []);
+                alert('🎉 Order placed successfully!');
+                onClose();
             }
         } catch (err) {
-            console.error("Failed to fetch my orders:", err);
+            console.error("Order submit error:", err);
+            alert(err.response?.data?.message || 'Failed to place order.');
         } finally {
             setLoading(false);
         }
     };
 
-    useEffect(() => {
-        fetchMyOrders();
-    }, []);
-
-    const handleDeleteOrder = async (orderId) => {
-        if (!window.confirm("Are you sure you want to delete this order?")) return;
-
-        try {
-            const token = localStorage.getItem('token') || localStorage.getItem('userToken');
-            const headers = {};
-            if (token) headers['Authorization'] = `Bearer ${token}`;
-
-            const baseUrl = import.meta.env.VITE_API_URL || '';
-            const res = await axios.delete(
-                `${baseUrl}/api/orders/${orderId}`,
-                { headers, withCredentials: true }
-            );
-
-            if (res.data?.success) {
-                alert('Order deleted successfully');
-                setOrders(prev => prev.filter(order => order._id !== orderId));
-            }
-        } catch (err) {
-            alert(err.response?.data?.message || 'Failed to delete order');
-        }
-    };
-
-    const getStatusStyle = (status) => {
-        switch (status) {
-            case 'Accepted':
-                return { bg: 'rgba(34, 197, 94, 0.2)', color: '#22c55e' };
-            case 'Rejected':
-            case 'Cancelled':
-                return { bg: 'rgba(239, 68, 68, 0.2)', color: '#ef4444' };
-            case 'Completed':
-                return { bg: 'rgba(59, 130, 246, 0.2)', color: '#3b82f6' };
-            default:
-                return { bg: 'rgba(234, 179, 8, 0.2)', color: '#eab308' };
-        }
-    };
-
-    if (loading) {
-        return (
-            <div style={{ color: '#fff', textAlign: 'center', padding: 60, fontFamily: 'system-ui' }}>
-                Loading your orders...
-            </div>
-        );
-    }
-
     return (
-        <div style={{ minHeight: '80vh', padding: '30px 16px', backgroundColor: '#09090b', color: '#fff', fontFamily: 'system-ui' }}>
-            <div style={{ maxWidth: 800, margin: '0 auto' }}>
-                <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 20, color: '#ffffff' }}>
-                    🛍️ My Orders
-                </h1>
-
-                {orders.length === 0 ? (
-                    <div style={{ background: '#18181b', padding: 40, borderRadius: 16, textAlign: 'center', color: '#a1a1aa', border: '1px solid #27272a' }}>
-                        <p style={{ fontSize: 16, margin: 0 }}>You haven't placed any orders yet.</p>
+        <div style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0,0,0,0.85)',
+            backdropFilter: 'blur(8px)',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            zIndex: 999999,
+            padding: 16
+        }}>
+            <div style={{
+                background: '#18181b',
+                color: '#ffffff',
+                width: '100%',
+                maxWidth: 460,
+                borderRadius: 16,
+                padding: 24,
+                boxShadow: '0 20px 40px rgba(0,0,0,0.8)',
+                position: 'relative',
+                border: '1px solid #27272a',
+                fontFamily: 'system-ui, -apple-system, sans-serif'
+            }}>
+                {/* Header */}
+                <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginBottom: 20,
+                    borderBottom: '1px solid #27272a',
+                    paddingBottom: 12
+                }}>
+                    <div>
+                        <span style={{ fontSize: 11, color: '#eab308', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', display: 'block' }}>
+                            Ordering From
+                        </span>
+                        <h2 style={{ fontSize: 18, fontWeight: 700, color: '#fff', margin: '2px 0 0 0' }}>
+                            {foodItem?.foodPartner?.restaurantName || foodItem?.foodPartner?.name || 'Food Partner'}
+                        </h2>
                     </div>
-                ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                        {orders.map((order) => {
-                            const statusBadge = getStatusStyle(order.status);
-                            const dishName = order.food?.name || order.food?.title || 'Food Item';
-                            const restaurantName = order.foodPartner?.restaurantName || order.foodPartner?.name || 'Restaurant Partner';
+                    <button 
+                        type="button"
+                        onClick={onClose}
+                        aria-label="Close modal"
+                        style={{
+                            color: '#a1a1aa',
+                            fontSize: 24,
+                            fontWeight: 700,
+                            background: 'transparent',
+                            border: 'none',
+                            cursor: 'pointer',
+                            padding: '4px 8px'
+                        }}
+                    >
+                        &times;
+                    </button>
+                </div>
 
-                            return (
-                                <div 
-                                    key={order._id} 
-                                    style={{ 
-                                        background: '#18181b', 
-                                        border: '1px solid #27272a', 
-                                        borderRadius: 16, 
-                                        padding: 20,
-                                        boxShadow: '0 4px 12px rgba(0,0,0,0.3)' 
-                                    }}
-                                >
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12, borderBottom: '1px solid #27272a', paddingBottom: 12 }}>
-                                        <div>
-                                            <span style={{ fontSize: 11, color: '#eab308', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                                                {restaurantName}
-                                            </span>
-                                            <h3 style={{ fontSize: 18, fontWeight: 700, margin: '2px 0 0 0', textTransform: 'capitalize', color: '#ffffff' }}>
-                                                {dishName}
-                                            </h3>
-                                        </div>
-                                        <span style={{ 
-                                            padding: '4px 12px', 
-                                            borderRadius: 999, 
-                                            fontSize: 12, 
-                                            fontWeight: 700,
-                                            background: statusBadge.bg,
-                                            color: statusBadge.color
-                                        }}>
-                                            {order.status || 'Pending'}
-                                        </span>
-                                    </div>
-
-                                    <div style={{ fontSize: 13, color: '#d4d4d8', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                                        <div><strong>Portion:</strong> {order.portion}</div>
-                                        <div><strong>Quantity:</strong> {order.quantity}</div>
-                                        <div><strong>Total Price:</strong> ₹{order.price}</div>
-                                        <div><strong>Order ID:</strong> #{order._id?.slice(-6)}</div>
-                                        <div style={{ gridColumn: 'span 2', marginTop: 4 }}>
-                                            <strong>Delivery Address:</strong> {order.deliveryAddress}
-                                        </div>
-                                    </div>
-
-                                    <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid #27272a', display: 'flex', justifyContent: 'flex-end' }}>
-                                        <button
-                                            onClick={() => handleDeleteOrder(order._id)}
-                                            style={{
-                                                backgroundColor: 'rgba(239, 68, 68, 0.15)',
-                                                color: '#ef4444',
-                                                border: '1px solid rgba(239, 68, 68, 0.3)',
-                                                padding: '6px 14px',
-                                                borderRadius: 8,
-                                                fontSize: 12,
-                                                fontWeight: 700,
-                                                cursor: 'pointer'
-                                            }}
-                                        >
-                                            🗑️ Cancel / Delete Order
-                                        </button>
-                                    </div>
-                                </div>
-                            );
-                        })}
+                <form onSubmit={handlePlaceOrder} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                    {/* Selected Dish Card */}
+                    <div style={{
+                        background: '#27272a',
+                        border: '1px solid #3f3f46',
+                        borderRadius: 12,
+                        padding: '12px 16px',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center'
+                    }}>
+                        <div>
+                            <span style={{ display: 'block', fontSize: 10, textTransform: 'uppercase', fontWeight: 700, color: '#a1a1aa', letterSpacing: '0.05em' }}>
+                                Selected Dish
+                            </span>
+                            <h3 style={{ fontSize: 16, fontWeight: 700, color: '#fff', textTransform: 'capitalize', margin: '2px 0 0 0' }}>
+                                {itemName}
+                            </h3>
+                        </div>
+                        <div style={{
+                            background: 'rgba(234, 179, 8, 0.2)',
+                            color: '#eab308',
+                            border: '1px solid rgba(234, 179, 8, 0.4)',
+                            padding: '4px 12px',
+                            borderRadius: 999,
+                            fontSize: 13,
+                            fontWeight: 700
+                        }}>
+                            ₹{unitPrice}
+                        </div>
                     </div>
-                )}
+
+                    {/* Portion & Quantity Row */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                        <div>
+                            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#d4d4d8', marginBottom: 6 }}>
+                                Portion Size
+                            </label>
+                            <select 
+                                value={selectedPortion?.name}
+                                onChange={(e) => {
+                                    const selected = availablePortions.find(p => p.name === e.target.value);
+                                    if (selected) setSelectedPortion(selected);
+                                }}
+                                style={{
+                                    width: '100%',
+                                    background: '#09090b',
+                                    color: '#ffffff',
+                                    border: '1px solid #3f3f46',
+                                    borderRadius: 8,
+                                    padding: '10px 12px',
+                                    fontSize: 13,
+                                    fontWeight: 600,
+                                    outline: 'none',
+                                    boxSizing: 'border-box'
+                                }}
+                            >
+                                {availablePortions.map((p, idx) => (
+                                    <option key={idx} value={p.name} style={{ background: '#18181b', color: '#fff' }}>
+                                        {p.name} (₹{p.price})
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div>
+                            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#d4d4d8', marginBottom: 6 }}>
+                                Quantity
+                            </label>
+                            <input 
+                                type="number" 
+                                min="1" 
+                                value={quantity}
+                                onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                                style={{
+                                    width: '100%',
+                                    background: '#09090b',
+                                    color: '#ffffff',
+                                    border: '1px solid #3f3f46',
+                                    borderRadius: 8,
+                                    padding: '10px 12px',
+                                    fontSize: 13,
+                                    fontWeight: 600,
+                                    outline: 'none',
+                                    boxSizing: 'border-box'
+                                }}
+                            />
+                        </div>
+                    </div>
+
+                    {/* Phone Number Input */}
+                    <div>
+                        <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#d4d4d8', marginBottom: 6 }}>
+                            Phone Number *
+                        </label>
+                        <input 
+                            type="tel"
+                            required
+                            placeholder="Enter contact number"
+                            value={phone}
+                            onChange={(e) => setPhone(e.target.value)}
+                            style={{
+                                width: '100%',
+                                background: '#09090b',
+                                color: '#ffffff',
+                                border: '1px solid #3f3f46',
+                                borderRadius: 8,
+                                padding: '10px 12px',
+                                fontSize: 13,
+                                fontWeight: 500,
+                                outline: 'none',
+                                boxSizing: 'border-box'
+                            }}
+                        />
+                    </div>
+
+                    {/* Delivery Address Input */}
+                    <div>
+                        <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#d4d4d8', marginBottom: 6 }}>
+                            Delivery Address *
+                        </label>
+                        <textarea 
+                            required
+                            rows="2"
+                            placeholder="House no, street, landmark..."
+                            value={address}
+                            onChange={(e) => setAddress(e.target.value)}
+                            style={{
+                                width: '100%',
+                                background: '#09090b',
+                                color: '#ffffff',
+                                border: '1px solid #3f3f46',
+                                borderRadius: 8,
+                                padding: '10px 12px',
+                                fontSize: 13,
+                                fontWeight: 500,
+                                outline: 'none',
+                                boxSizing: 'border-box',
+                                resize: 'vertical'
+                            }}
+                        />
+                    </div>
+
+                    {/* Payment Method Option */}
+                    <div>
+                        <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#d4d4d8', marginBottom: 6 }}>
+                            Payment Method
+                        </label>
+                        <div style={{
+                            width: '100%',
+                            background: '#09090b',
+                            border: '1px solid #27272a',
+                            borderRadius: 8,
+                            padding: '10px 12px',
+                            fontSize: 13,
+                            color: '#d4d4d8',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            boxSizing: 'border-box'
+                        }}>
+                            <span>Cash on Delivery</span>
+                            <span style={{ fontSize: 11, background: 'rgba(34, 197, 94, 0.2)', color: '#22c55e', padding: '2px 8px', borderRadius: 4, fontWeight: 700 }}>
+                                Active
+                            </span>
+                        </div>
+                    </div>
+
+                    {/* Place Order Button */}
+                    <button
+                        type="submit"
+                        disabled={loading}
+                        style={{
+                            width: '100%',
+                            marginTop: 8,
+                            padding: '12px 16px',
+                            backgroundColor: '#eab308',
+                            color: '#000000',
+                            fontWeight: 700,
+                            fontSize: 15,
+                            borderRadius: 12,
+                            border: 'none',
+                            cursor: loading ? 'not-allowed' : 'pointer',
+                            opacity: loading ? 0.6 : 1,
+                            transition: 'background-color 0.2s ease'
+                        }}
+                    >
+                        {loading ? 'Placing Order...' : `Place Order • ₹${totalPrice}`}
+                    </button>
+                </form>
             </div>
         </div>
     );
 };
 
-export default MyOrders;
+export default OrderModal;
