@@ -4,27 +4,62 @@ import axios from 'axios';
 const OrderModal = ({ foodItem, onClose }) => {
     const itemName = foodItem?.name || foodItem?.title || foodItem?.foodName || 'Selected Food Item';
 
-    // Helper: Normalize portion options from different database formats
+    // Helper: Normalize portion options from any MongoDB data format
     const getNormalizedPortions = (item) => {
-        if (!item) return [{ name: 'Standard / Full', price: 150 }];
-
-        // 1. If portions is an array of objects [{ name: 'Half', price: 200 }, ...]
-        if (Array.isArray(item.portions) && item.portions.length > 0) {
-            return item.portions.map(p => typeof p === 'object' ? p : { name: `Portion (${p})`, price: Number(p) });
+        if (!item || !item.portions) {
+            return [{ name: 'Standard / Full', price: Number(item?.price || 150) }];
         }
 
-        // 2. If portions was saved as an object { half: 200, medium: 250, full: 300 }
-        if (typeof item.portions === 'object' && item.portions !== null) {
-            const keys = Object.keys(item.portions);
-            if (keys.length > 0) {
-                return keys.map(k => ({
-                    name: k.charAt(0).toUpperCase() + k.slice(1),
-                    price: Number(item.portions[k])
-                })).filter(p => !isNaN(p.price) && p.price > 0);
+        let portionsData = item.portions;
+
+        // Parse JSON string if necessary
+        if (typeof portionsData === 'string') {
+            try {
+                portionsData = JSON.parse(portionsData);
+            } catch (e) {
+                portionsData = null;
             }
         }
 
-        // 3. Fallback to base price
+        // 1. Array format: [{ name: 'Small', price: 200 }, ...]
+        if (Array.isArray(portionsData) && portionsData.length > 0) {
+            return portionsData.map(p => {
+                if (typeof p === 'object' && p !== null) {
+                    return {
+                        name: String(p.name || p.portion || p.label || 'Portion'),
+                        price: Number(p.price || p.cost || 0)
+                    };
+                }
+                return { name: `Portion (${p})`, price: Number(p) };
+            });
+        }
+
+        // 2. Map instance format
+        if (portionsData instanceof Map) {
+            const result = [];
+            portionsData.forEach((val, key) => {
+                result.push({
+                    name: String(key).charAt(0).toUpperCase() + String(key).slice(1),
+                    price: Number(val)
+                });
+            });
+            if (result.length > 0) return result;
+        }
+
+        // 3. Object format (e.g. { small: 200, medium: 250, large: 300 })
+        if (typeof portionsData === 'object' && portionsData !== null) {
+            const entries = Object.entries(portionsData);
+            if (entries.length > 0) {
+                const result = entries
+                    .filter(([_, val]) => val !== undefined && val !== null && !isNaN(Number(val)))
+                    .map(([key, val]) => ({
+                        name: String(key).charAt(0).toUpperCase() + String(key).slice(1),
+                        price: Number(val)
+                    }));
+                if (result.length > 0) return result;
+            }
+        }
+
         const basePrice = Number(item.price || item.basePrice || 150);
         return [{ name: 'Standard / Full', price: basePrice }];
     };
@@ -65,8 +100,9 @@ const OrderModal = ({ foodItem, onClose }) => {
 
         setLoading(true);
         try {
+            const baseUrl = import.meta.env.VITE_API_URL || '';
             const res = await axios.post(
-                `${import.meta.env.VITE_API_URL}/api/orders/create`,
+                `${baseUrl}/api/orders/create`,
                 {
                     foodId: foodItem._id,
                     foodPartnerId: partnerId,
