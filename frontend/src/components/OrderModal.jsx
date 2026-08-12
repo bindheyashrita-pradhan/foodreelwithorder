@@ -1,12 +1,75 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
 const OrderModal = ({ foodItem, onClose }) => {
     const itemName = foodItem?.name || foodItem?.title || foodItem?.foodName || 'Selected Food Item';
 
-    const availablePortions = Array.isArray(foodItem?.portions) && foodItem.portions.length > 0
-        ? foodItem.portions
-        : [{ name: 'Standard / Full', price: foodItem?.price || 150 }];
+    // 🟢 HELPER: Extract all available portions dynamically regardless of how saved in DB
+    const getAvailablePortions = (food) => {
+        if (!food) return [{ name: 'Standard / Full', price: 150 }];
+
+        const portions = [];
+
+        // 1. Array of Objects e.g. [{ name: 'Half', price: 200 }, ...]
+        if (Array.isArray(food.portions) && food.portions.length > 0) {
+            food.portions.forEach((p, idx) => {
+                if (typeof p === 'object' && p !== null) {
+                    portions.push({
+                        name: p.name || p.portion || `Portion ${idx + 1}`,
+                        price: Number(p.price || p.rate || food.price || food.basePrice || 150)
+                    });
+                } else if (typeof p === 'number' || typeof p === 'string') {
+                    const names = ['Half', 'Medium', 'Full'];
+                    portions.push({
+                        name: names[idx] || `Portion ${idx + 1}`,
+                        price: Number(p)
+                    });
+                }
+            });
+        }
+
+        // 2. Object or Array under portionPrices e.g. [200, 250, 300] or { half: 200, medium: 250, full: 300 }
+        if (portions.length === 0 && food.portionPrices) {
+            if (Array.isArray(food.portionPrices)) {
+                const names = ['Half', 'Medium', 'Full'];
+                food.portionPrices.forEach((val, idx) => {
+                    if (val && Number(val) > 0) {
+                        portions.push({
+                            name: names[idx] || `Option ${idx + 1}`,
+                            price: Number(val)
+                        });
+                    }
+                });
+            } else if (typeof food.portionPrices === 'object') {
+                Object.entries(food.portionPrices).forEach(([key, val]) => {
+                    if (val && Number(val) > 0) {
+                        const nameFormatted = key.charAt(0).toUpperCase() + key.slice(1);
+                        portions.push({
+                            name: nameFormatted,
+                            price: Number(val)
+                        });
+                    }
+                });
+            }
+        }
+
+        // 3. Check for specific fields e.g. halfPrice, mediumPrice, fullPrice
+        if (portions.length === 0) {
+            if (food.halfPrice || food.half) portions.push({ name: 'Half', price: Number(food.halfPrice || food.half) });
+            if (food.mediumPrice || food.medium) portions.push({ name: 'Medium', price: Number(food.mediumPrice || food.medium) });
+            if (food.fullPrice || food.full) portions.push({ name: 'Full', price: Number(food.fullPrice || food.full) });
+        }
+
+        // 4. Fallback to base price or standard price
+        if (portions.length === 0) {
+            const basePrice = Number(food.price || food.basePrice || 150);
+            portions.push({ name: 'Standard / Full', price: basePrice });
+        }
+
+        return portions;
+    };
+
+    const availablePortions = getAvailablePortions(foodItem);
 
     const [selectedPortion, setSelectedPortion] = useState(availablePortions[0]);
     const [quantity, setQuantity] = useState(1);
@@ -14,7 +77,15 @@ const OrderModal = ({ foodItem, onClose }) => {
     const [address, setAddress] = useState('');
     const [loading, setLoading] = useState(false);
 
-    const unitPrice = Number(selectedPortion?.price || foodItem?.price || 150);
+    // Sync selected portion if foodItem changes
+    useEffect(() => {
+        const portions = getAvailablePortions(foodItem);
+        if (portions.length > 0) {
+            setSelectedPortion(portions[0]);
+        }
+    }, [foodItem]);
+
+    const unitPrice = Number(selectedPortion?.price || foodItem?.price || foodItem?.basePrice || 150);
     const totalPrice = unitPrice * quantity;
 
     const handlePlaceOrder = async (e) => {
@@ -32,7 +103,6 @@ const OrderModal = ({ foodItem, onClose }) => {
             return alert('Unable to detect restaurant partner for this item.');
         }
 
-        // Optional token fallback if stored in localStorage
         const token = localStorage.getItem('token') || 
                       localStorage.getItem('userToken') || 
                       localStorage.getItem('partnerToken');
@@ -57,7 +127,7 @@ const OrderModal = ({ foodItem, onClose }) => {
                 },
                 { 
                     headers,
-                    withCredentials: true // Sends HttpOnly auth cookie to backend automatically
+                    withCredentials: true
                 }
             );
 
