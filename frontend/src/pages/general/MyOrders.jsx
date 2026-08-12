@@ -2,28 +2,29 @@ import React, { useState } from 'react';
 import axios from 'axios';
 
 const OrderModal = ({ foodItem, onClose }) => {
-    const itemName = foodItem?.name || foodItem?.title || foodItem?.foodName || 'Selected Food Item';
+    // 🛑 GUARD 1: Prevent ghost modal from rendering on /my-orders or empty selection
+    if (!foodItem || (!foodItem._id && !foodItem.name && !foodItem.title)) {
+        return null;
+    }
 
-    // Helper: Normalize portion options from any MongoDB data format
+    const itemName = foodItem.name || foodItem.title || foodItem.foodName || 'Food Item';
+
+    // Helper: Safely normalize portion sizes from any MongoDB format
     const getNormalizedPortions = (item) => {
         if (!item || !item.portions) {
             return [{ name: 'Standard / Full', price: Number(item?.price || 150) }];
         }
 
-        let portionsData = item.portions;
+        let rawPortions = item.portions;
 
-        // Parse JSON string if necessary
-        if (typeof portionsData === 'string') {
-            try {
-                portionsData = JSON.parse(portionsData);
-            } catch (e) {
-                portionsData = null;
-            }
+        // Convert Mongoose Map to object if needed
+        if (typeof rawPortions?.toObject === 'function') {
+            rawPortions = rawPortions.toObject();
         }
 
         // 1. Array format: [{ name: 'Small', price: 200 }, ...]
-        if (Array.isArray(portionsData) && portionsData.length > 0) {
-            return portionsData.map(p => {
+        if (Array.isArray(rawPortions) && rawPortions.length > 0) {
+            return rawPortions.map(p => {
                 if (typeof p === 'object' && p !== null) {
                     return {
                         name: String(p.name || p.portion || p.label || 'Portion'),
@@ -34,24 +35,12 @@ const OrderModal = ({ foodItem, onClose }) => {
             });
         }
 
-        // 2. Map instance format
-        if (portionsData instanceof Map) {
-            const result = [];
-            portionsData.forEach((val, key) => {
-                result.push({
-                    name: String(key).charAt(0).toUpperCase() + String(key).slice(1),
-                    price: Number(val)
-                });
-            });
-            if (result.length > 0) return result;
-        }
-
-        // 3. Object format (e.g. { small: 200, medium: 250, large: 300 })
-        if (typeof portionsData === 'object' && portionsData !== null) {
-            const entries = Object.entries(portionsData);
+        // 2. Object format: { small: 200, medium: 250, large: 300 }
+        if (typeof rawPortions === 'object' && rawPortions !== null) {
+            const entries = Object.entries(rawPortions);
             if (entries.length > 0) {
                 const result = entries
-                    .filter(([_, val]) => val !== undefined && val !== null && !isNaN(Number(val)))
+                    .filter(([_, val]) => val !== undefined && val !== null && !isNaN(Number(val)) && Number(val) > 0)
                     .map(([key, val]) => ({
                         name: String(key).charAt(0).toUpperCase() + String(key).slice(1),
                         price: Number(val)
