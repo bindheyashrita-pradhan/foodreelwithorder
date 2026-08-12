@@ -1,411 +1,295 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useEffect, useState } from 'react';
 import axios from 'axios';
+import { useNavigate, Link } from 'react-router-dom';
 
-const OrderModal = ({ foodItem, onClose }) => {
-    // 🛑 GUARD: Prevent ghost modal from rendering on empty/invalid selection
-    if (!foodItem || (!foodItem._id && !foodItem.name && !foodItem.title && !foodItem.foodName)) {
-        return null;
-    }
+const MyOrders = () => {
+    const [orders, setOrders] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState('');
+    const navigate = useNavigate();
 
-    const itemName = foodItem.name || foodItem.title || foodItem.foodName || 'Food Item';
-
-    // Helper: Safely normalize portion sizes from any MongoDB / Mongoose format
-    const normalizePortions = (item) => {
-        if (!item || !item.portions) {
-            const fallbackPrice = Number(item?.price || item?.basePrice || 150);
-            return [{ name: 'Standard / Full', price: isNaN(fallbackPrice) ? 150 : fallbackPrice }];
-        }
-
-        let rawPortions = item.portions;
-
-        // 1. If stored as a Mongoose Map
-        if (typeof rawPortions?.toObject === 'function') {
-            rawPortions = rawPortions.toObject();
-        }
-
-        // 2. If stored as a JSON string
-        if (typeof rawPortions === 'string') {
-            try {
-                rawPortions = JSON.parse(rawPortions);
-            } catch (err) {
-                rawPortions = null;
-            }
-        }
-
-        // 3. Handle Array format: [{ name: 'Small', price: 200 }, ...]
-        if (Array.isArray(rawPortions) && rawPortions.length > 0) {
-            const parsedArray = rawPortions.map(p => {
-                if (typeof p === 'object' && p !== null) {
-                    return {
-                        name: String(p.name || p.portion || p.label || 'Portion'),
-                        price: Number(p.price || p.cost || 0)
-                    };
-                }
-                return { name: `Portion (${p})`, price: Number(p) };
-            }).filter(p => !isNaN(p.price) && p.price > 0);
-
-            if (parsedArray.length > 0) return parsedArray;
-        }
-
-        // 4. Handle Object format: { small: 200, medium: 250, large: 300 }
-        if (typeof rawPortions === 'object' && rawPortions !== null) {
-            const entries = Object.entries(rawPortions);
-            if (entries.length > 0) {
-                const parsedObject = entries
-                    .filter(([_, val]) => val !== undefined && val !== null && !isNaN(Number(val)) && Number(val) > 0)
-                    .map(([key, val]) => ({
-                        name: String(key).charAt(0).toUpperCase() + String(key).slice(1),
-                        price: Number(val)
-                    }));
-
-                if (parsedObject.length > 0) return parsedObject;
-            }
-        }
-
-        const basePrice = Number(item.price || item.basePrice || 150);
-        return [{ name: 'Standard / Full', price: isNaN(basePrice) ? 150 : basePrice }];
-    };
-
-    // Calculate available portions whenever foodItem changes
-    const availablePortions = useMemo(() => normalizePortions(foodItem), [foodItem]);
-
-    const [selectedPortion, setSelectedPortion] = useState(availablePortions[0]);
-    const [quantity, setQuantity] = useState(1);
-    const [phone, setPhone] = useState('');
-    const [address, setAddress] = useState('');
-    const [loading, setLoading] = useState(false);
-
-    // Re-sync selected portion when foodItem changes
-    useEffect(() => {
-        const portions = normalizePortions(foodItem);
-        if (portions && portions.length > 0) {
-            setSelectedPortion(portions[0]);
-        }
-        setQuantity(1);
-    }, [foodItem]);
-
-    const unitPrice = Number(selectedPortion?.price || foodItem?.price || 150);
-    const totalPrice = unitPrice * quantity;
-
-    const handlePlaceOrder = async (e) => {
-        e.preventDefault();
-
-        if (!phone.trim() || !address.trim()) {
-            return alert('Please fill in both your phone number and delivery address.');
-        }
-
-        const partnerId = typeof foodItem?.foodPartner === 'object' && foodItem?.foodPartner !== null
-            ? foodItem.foodPartner._id 
-            : (foodItem?.foodPartner || foodItem?.partnerId || foodItem?.foodPartnerId);
-
-        if (!partnerId) {
-            return alert('Unable to detect restaurant partner for this item.');
-        }
-
-        // Retrieve authorization token
-        const savedUserStr = localStorage.getItem('user');
-        let parsedUserToken = null;
-        if (savedUserStr) {
-            try {
-                const parsed = JSON.parse(savedUserStr);
-                parsedUserToken = parsed.token || parsed.userToken;
-            } catch (err) { /* ignore */ }
-        }
-
-        const token = localStorage.getItem('token') || 
-                      localStorage.getItem('userToken') || 
-                      localStorage.getItem('partnerToken') || 
-                      parsedUserToken;
-
-        const headers = {};
-        if (token) {
-            headers['Authorization'] = `Bearer ${token}`;
-        }
-
-        setLoading(true);
+    const fetchUserOrders = async () => {
         try {
-            const baseUrl = import.meta.env.VITE_API_URL || '';
-            const res = await axios.post(
-                `${baseUrl}/api/orders/create`,
-                {
-                    foodId: foodItem._id,
-                    foodPartnerId: partnerId,
-                    portion: selectedPortion?.name || 'Standard',
-                    price: totalPrice,
-                    quantity: quantity,
-                    phone: phone.trim(),
-                    deliveryAddress: address.trim()
-                },
+            setLoading(true);
+            setError('');
+
+            // 1. Extract Token from localStorage (tries multiple common storage keys)
+            let token = localStorage.getItem('token') || 
+                        localStorage.getItem('userToken') || 
+                        localStorage.getItem('partnerToken');
+
+            // Fallback: If user object was stored as JSON string
+            if (!token) {
+                const storedUser = localStorage.getItem('user');
+                if (storedUser) {
+                    try {
+                        const parsed = JSON.parse(storedUser);
+                        token = parsed.token || parsed.userToken;
+                    } catch (e) {
+                        console.warn("Could not parse user object from localStorage", e);
+                    }
+                }
+            }
+
+            // 2. Build headers with Bearer token
+            const headers = {};
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`;
+            }
+
+            // 3. Make API request
+            const API_BASE_URL = import.meta.env.VITE_API_URL || '';
+            console.log("Fetching orders from:", `${API_BASE_URL}/api/orders/my-orders`);
+
+            const res = await axios.get(
+                `${API_BASE_URL}/api/orders/my-orders`,
                 { 
                     headers,
                     withCredentials: true 
                 }
             );
 
-            if (res.data?.success) {
-                alert('🎉 Order placed successfully!');
-                onClose();
+            console.log("My Orders API response data:", res.data);
+
+            // 4. Safely extract orders array regardless of API payload structure
+            let fetchedOrders = [];
+            if (Array.isArray(res.data)) {
+                fetchedOrders = res.data;
+            } else if (Array.isArray(res.data?.orders)) {
+                fetchedOrders = res.data.orders;
+            } else if (Array.isArray(res.data?.data)) {
+                fetchedOrders = res.data.data;
+            } else if (res.data?.order && typeof res.data.order === 'object') {
+                fetchedOrders = [res.data.order];
             }
+
+            setOrders(fetchedOrders);
         } catch (err) {
-            console.error("Order submit error:", err);
-            alert(err.response?.data?.message || 'Failed to place order.');
+            console.error("Failed to fetch user orders:", err);
+            const errorMessage = err.response?.data?.message || 
+                                 err.message || 
+                                 "Failed to load orders. Please try again.";
+            setError(errorMessage);
         } finally {
             setLoading(false);
         }
     };
 
-    return (
-        <div style={{
-            position: 'fixed',
-            inset: 0,
-            backgroundColor: 'rgba(0,0,0,0.85)',
-            backdropFilter: 'blur(8px)',
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            zIndex: 999999,
-            padding: 16
-        }}>
-            <div style={{
-                background: '#18181b',
-                color: '#ffffff',
-                width: '100%',
-                maxWidth: 460,
-                borderRadius: 16,
-                padding: 24,
-                boxShadow: '0 20px 40px rgba(0,0,0,0.8)',
-                position: 'relative',
-                border: '1px solid #27272a',
-                fontFamily: 'system-ui, -apple-system, sans-serif'
+    useEffect(() => {
+        fetchUserOrders();
+    }, []);
+
+    // 🔴 LOADING STATE
+    if (loading) {
+        return (
+            <div style={{ 
+                minHeight: '70vh', 
+                display: 'flex', 
+                flexDirection: 'column',
+                justifyContent: 'center', 
+                alignItems: 'center', 
+                color: '#a1a1aa',
+                fontFamily: 'system-ui, sans-serif' 
             }}>
-                {/* Header */}
-                <div style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    marginBottom: 20,
-                    borderBottom: '1px solid #27272a',
-                    paddingBottom: 12
+                <div style={{ fontSize: '18px', fontWeight: '600', color: '#fff' }}>
+                    📦 Loading your orders...
+                </div>
+            </div>
+        );
+    }
+
+    // 🔴 ERROR STATE
+    if (error) {
+        return (
+            <div style={{ 
+                minHeight: '70vh', 
+                display: 'flex', 
+                flexDirection: 'column', 
+                alignItems: 'center', 
+                justifyContent: 'center', 
+                padding: '20px', 
+                color: '#fff',
+                fontFamily: 'system-ui, sans-serif'
+            }}>
+                <div style={{ 
+                    background: '#18181b', 
+                    border: '1px solid #ef4444', 
+                    borderRadius: '16px', 
+                    padding: '30px', 
+                    maxWidth: '400px', 
+                    textAlign: 'center' 
                 }}>
-                    <div>
-                        <span style={{ fontSize: 11, color: '#eab308', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', display: 'block' }}>
-                            Ordering From
-                        </span>
-                        <h2 style={{ fontSize: 18, fontWeight: 700, color: '#fff', margin: '2px 0 0 0' }}>
-                            {foodItem?.foodPartner?.restaurantName || foodItem?.foodPartner?.name || 'Food Partner'}
-                        </h2>
+                    <h3 style={{ color: '#ef4444', margin: '0 0 10px 0', fontSize: '18px' }}>
+                        Unable to load orders
+                    </h3>
+                    <p style={{ color: '#a1a1aa', fontSize: '14px', marginBottom: '20px' }}>
+                        {error}
+                    </p>
+                    <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+                        <button 
+                            onClick={fetchUserOrders} 
+                            style={{ 
+                                padding: '10px 18px', 
+                                background: '#22c55e', 
+                                color: '#000', 
+                                border: 'none', 
+                                borderRadius: '8px', 
+                                fontWeight: '700', 
+                                cursor: 'pointer' 
+                            }}
+                        >
+                            Retry
+                        </button>
+                        <button 
+                            onClick={() => navigate('/user/login')} 
+                            style={{ 
+                                padding: '10px 18px', 
+                                background: '#27272a', 
+                                color: '#fff', 
+                                border: '1px solid #3f3f46', 
+                                borderRadius: '8px', 
+                                fontWeight: '600', 
+                                cursor: 'pointer' 
+                            }}
+                        >
+                            Log In
+                        </button>
                     </div>
-                    <button 
-                        type="button"
-                        onClick={onClose}
-                        aria-label="Close modal"
-                        style={{
-                            color: '#a1a1aa',
-                            fontSize: 24,
-                            fontWeight: 700,
-                            background: 'transparent',
-                            border: 'none',
-                            cursor: 'pointer',
-                            padding: '4px 8px'
+                </div>
+            </div>
+        );
+    }
+
+    // 🟢 MAIN CONTENT RENDER
+    return (
+        <div style={{ 
+            minHeight: '80vh', 
+            padding: '24px 16px 80px 16px', 
+            color: '#fff', 
+            fontFamily: 'system-ui, sans-serif',
+            maxWidth: '800px', 
+            margin: '0 auto' 
+        }}>
+            <h1 style={{ fontSize: '24px', fontWeight: '800', marginBottom: '20px', color: '#fff' }}>
+                📋 My Orders
+            </h1>
+
+            {/* 🟡 EMPTY ORDERS STATE */}
+            {(!orders || orders.length === 0) ? (
+                <div style={{ 
+                    background: '#18181b', 
+                    border: '1px solid #27272a', 
+                    borderRadius: '16px', 
+                    padding: '40px 20px', 
+                    textAlign: 'center', 
+                    color: '#a1a1aa' 
+                }}>
+                    <div style={{ fontSize: '40px', marginBottom: '12px' }}>🛒</div>
+                    <h3 style={{ color: '#fff', fontSize: '18px', margin: '0 0 8px 0' }}>No orders placed yet</h3>
+                    <p style={{ fontSize: '14px', margin: '0 0 20px 0' }}>Explore delicious food items and place your first order!</p>
+                    <Link 
+                        to="/" 
+                        style={{ 
+                            display: 'inline-block',
+                            padding: '10px 20px', 
+                            background: '#e11d48', 
+                            color: '#fff', 
+                            textDecoration: 'none', 
+                            borderRadius: '8px', 
+                            fontWeight: '700',
+                            fontSize: '14px'
                         }}
                     >
-                        &times;
-                    </button>
+                        Explore Food
+                    </Link>
                 </div>
+            ) : (
+                /* 🟢 ORDERS LIST */
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    {orders.map((order, index) => {
+                        // SAFE CHAINING TO PREVENT RUNTIME CRASHES
+                        const orderId = order?._id ? String(order._id).slice(-6) : `ORD-${index + 1}`;
+                        const foodTitle = order?.food?.name || order?.food?.title || order?.foodTitle || 'Food Item';
+                        const status = order?.status || 'Pending';
+                        const price = order?.price || order?.totalPrice || 0;
+                        const quantity = order?.quantity || 1;
+                        const portion = order?.portion || 'Standard';
+                        const address = order?.deliveryAddress || order?.address || 'N/A';
+                        const createdAt = order?.createdAt ? new Date(order.createdAt).toLocaleDateString() : '';
 
-                <form onSubmit={handlePlaceOrder} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                    {/* Selected Dish Card */}
-                    <div style={{
-                        background: '#27272a',
-                        border: '1px solid #3f3f46',
-                        borderRadius: 12,
-                        padding: '12px 16px',
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center'
-                    }}>
-                        <div>
-                            <span style={{ display: 'block', fontSize: 10, textTransform: 'uppercase', fontWeight: 700, color: '#a1a1aa', letterSpacing: '0.05em' }}>
-                                Selected Dish
-                            </span>
-                            <h3 style={{ fontSize: 16, fontWeight: 700, color: '#fff', textTransform: 'capitalize', margin: '2px 0 0 0' }}>
-                                {itemName}
-                            </h3>
-                        </div>
-                        <div style={{
-                            background: 'rgba(234, 179, 8, 0.2)',
-                            color: '#eab308',
-                            border: '1px solid rgba(234, 179, 8, 0.4)',
-                            padding: '4px 12px',
-                            borderRadius: 999,
-                            fontSize: 13,
-                            fontWeight: 700
-                        }}>
-                            ₹{unitPrice}
-                        </div>
-                    </div>
+                        // Color badge according to order status
+                        let statusBg = 'rgba(234, 179, 8, 0.2)';
+                        let statusColor = '#eab308';
+                        if (status.toLowerCase() === 'accepted' || status.toLowerCase() === 'completed') {
+                            statusBg = 'rgba(34, 197, 94, 0.2)';
+                            statusColor = '#22c55e';
+                        } else if (status.toLowerCase() === 'rejected' || status.toLowerCase() === 'cancelled') {
+                            statusBg = 'rgba(239, 68, 68, 0.2)';
+                            statusColor = '#ef4444';
+                        }
 
-                    {/* Portion & Quantity Row */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                        <div>
-                            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#d4d4d8', marginBottom: 6 }}>
-                                Portion Size
-                            </label>
-                            <select 
-                                value={selectedPortion?.name || ''}
-                                onChange={(e) => {
-                                    const selected = availablePortions.find(p => p.name === e.target.value);
-                                    if (selected) setSelectedPortion(selected);
-                                }}
-                                style={{
-                                    width: '100%',
-                                    background: '#09090b',
-                                    color: '#ffffff',
-                                    border: '1px solid #3f3f46',
-                                    borderRadius: 8,
-                                    padding: '10px 12px',
-                                    fontSize: 13,
-                                    fontWeight: 600,
-                                    outline: 'none',
-                                    boxSizing: 'border-box'
+                        return (
+                            <div 
+                                key={order?._id || index} 
+                                style={{ 
+                                    background: '#18181b', 
+                                    border: '1px solid #27272a', 
+                                    borderRadius: '16px', 
+                                    padding: '20px', 
+                                    boxShadow: '0 4px 12px rgba(0,0,0,0.3)' 
                                 }}
                             >
-                                {availablePortions.map((p, idx) => (
-                                    <option key={idx} value={p.name} style={{ background: '#18181b', color: '#fff' }}>
-                                        {p.name} (₹{p.price})
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
+                                {/* Header */}
+                                <div style={{ 
+                                    display: 'flex', 
+                                    justifyContent: 'space-between', 
+                                    alignItems: 'center', 
+                                    borderBottom: '1px solid #27272a', 
+                                    paddingBottom: '12px', 
+                                    marginBottom: '12px' 
+                                }}>
+                                    <div>
+                                        <span style={{ fontSize: '12px', color: '#a1a1aa' }}>Order ID: #{orderId}</span>
+                                        {createdAt && <span style={{ fontSize: '12px', color: '#71717a', marginLeft: '10px' }}>• {createdAt}</span>}
+                                        <h3 style={{ fontSize: '18px', fontWeight: '700', margin: '4px 0 0 0', color: '#fff', textTransform: 'capitalize' }}>
+                                            {foodTitle}
+                                        </h3>
+                                    </div>
+                                    <span style={{ 
+                                        padding: '4px 12px', 
+                                        borderRadius: '999px', 
+                                        fontSize: '12px', 
+                                        fontWeight: '700', 
+                                        background: statusBg, 
+                                        color: statusColor,
+                                        textTransform: 'capitalize'
+                                    }}>
+                                        {status}
+                                    </span>
+                                </div>
 
-                        <div>
-                            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#d4d4d8', marginBottom: 6 }}>
-                                Quantity
-                            </label>
-                            <input 
-                                type="number" 
-                                min="1" 
-                                value={quantity}
-                                onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-                                style={{
-                                    width: '100%',
-                                    background: '#09090b',
-                                    color: '#ffffff',
-                                    border: '1px solid #3f3f46',
-                                    borderRadius: 8,
-                                    padding: '10px 12px',
-                                    fontSize: 13,
-                                    fontWeight: 600,
-                                    outline: 'none',
-                                    boxSizing: 'border-box'
-                                }}
-                            />
-                        </div>
-                    </div>
-
-                    {/* Phone Number Input */}
-                    <div>
-                        <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#d4d4d8', marginBottom: 6 }}>
-                            Phone Number *
-                        </label>
-                        <input 
-                            type="tel"
-                            required
-                            placeholder="Enter contact number"
-                            value={phone}
-                            onChange={(e) => setPhone(e.target.value)}
-                            style={{
-                                width: '100%',
-                                background: '#09090b',
-                                color: '#ffffff',
-                                border: '1px solid #3f3f46',
-                                borderRadius: 8,
-                                padding: '10px 12px',
-                                fontSize: 13,
-                                fontWeight: 500,
-                                outline: 'none',
-                                boxSizing: 'border-box'
-                            }}
-                        />
-                    </div>
-
-                    {/* Delivery Address Input */}
-                    <div>
-                        <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#d4d4d8', marginBottom: 6 }}>
-                            Delivery Address *
-                        </label>
-                        <textarea 
-                            required
-                            rows="2"
-                            placeholder="House no, street, landmark..."
-                            value={address}
-                            onChange={(e) => setAddress(e.target.value)}
-                            style={{
-                                width: '100%',
-                                background: '#09090b',
-                                color: '#ffffff',
-                                border: '1px solid #3f3f46',
-                                borderRadius: 8,
-                                padding: '10px 12px',
-                                fontSize: 13,
-                                fontWeight: 500,
-                                outline: 'none',
-                                boxSizing: 'border-box',
-                                resize: 'vertical'
-                            }}
-                        />
-                    </div>
-
-                    {/* Payment Method Option */}
-                    <div>
-                        <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#d4d4d8', marginBottom: 6 }}>
-                            Payment Method
-                        </label>
-                        <div style={{
-                            width: '100%',
-                            background: '#09090b',
-                            border: '1px solid #27272a',
-                            borderRadius: 8,
-                            padding: '10px 12px',
-                            fontSize: 13,
-                            color: '#d4d4d8',
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            boxSizing: 'border-box'
-                        }}>
-                            <span>Cash on Delivery</span>
-                            <span style={{ fontSize: 11, background: 'rgba(34, 197, 94, 0.2)', color: '#22c55e', padding: '2px 8px', borderRadius: 4, fontWeight: 700 }}>
-                                Active
-                            </span>
-                        </div>
-                    </div>
-
-                    {/* Place Order Button */}
-                    <button
-                        type="submit"
-                        disabled={loading}
-                        style={{
-                            width: '100%',
-                            marginTop: 8,
-                            padding: '12px 16px',
-                            backgroundColor: '#eab308',
-                            color: '#000000',
-                            fontWeight: 700,
-                            fontSize: 15,
-                            borderRadius: 12,
-                            border: 'none',
-                            cursor: loading ? 'not-allowed' : 'pointer',
-                            opacity: loading ? 0.6 : 1,
-                            transition: 'background-color 0.2s ease'
-                        }}
-                    >
-                        {loading ? 'Placing Order...' : `Place Order • ₹${totalPrice}`}
-                    </button>
-                </form>
-            </div>
+                                {/* Details Grid */}
+                                <div style={{ 
+                                    fontSize: '13px', 
+                                    color: '#d4d4d8', 
+                                    display: 'grid', 
+                                    gridTemplateColumns: '1fr 1fr', 
+                                    gap: '8px' 
+                                }}>
+                                    <div><strong>Portion:</strong> {portion}</div>
+                                    <div><strong>Quantity:</strong> {quantity}</div>
+                                    <div><strong>Total Price:</strong> ₹{price}</div>
+                                    <div style={{ gridColumn: 'span 2', marginTop: '4px' }}>
+                                        <strong>Delivery Address:</strong> {address}
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
         </div>
     );
 };
 
-export default OrderModal;
+export default MyOrders;
