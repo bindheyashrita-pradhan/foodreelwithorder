@@ -2,7 +2,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const Order = require('../models/order.model');
 
-// 🟢 FIX 1: Require models so Mongoose registers them for .populate()
+// Pre-load food and partner models for population
 try {
     require('../models/food.model');
 } catch (e) {
@@ -46,8 +46,8 @@ router.post('/create', authUserMiddleware, async (req, res) => {
             food: foodId,
             foodPartner: validPartnerId,
             portion: portion || 'Standard',
-            price,
-            quantity: quantity || 1,
+            price: Number(price) || 0,
+            quantity: Number(quantity) || 1,
             phone: contactPhone,
             phoneNumber: contactPhone,
             deliveryAddress
@@ -60,7 +60,7 @@ router.post('/create', authUserMiddleware, async (req, res) => {
     }
 });
 
-// 🟢 FIX 2: Get all orders for logged-in customer (with robust population & ID matching)
+// Get all orders for logged-in customer
 router.get('/my-orders', authUserMiddleware, async (req, res) => {
     try {
         const rawUserId = req.user?._id || req.user?.id || req.user;
@@ -68,28 +68,24 @@ router.get('/my-orders', authUserMiddleware, async (req, res) => {
             return res.status(401).json({ success: false, message: 'User authentication required.' });
         }
 
-        // Handle both string ID and ObjectId
         const userObjectId = mongoose.Types.ObjectId.isValid(rawUserId)
             ? new mongoose.Types.ObjectId(rawUserId)
             : rawUserId;
 
         let orders = [];
         try {
-            // Find orders using flexible user ID matching + population
             orders = await Order.find({
                 $or: [
                     { user: userObjectId },
                     { user: rawUserId.toString() }
                 ]
             })
-            .populate('food') // Populates Food document (name, image, etc.)
+            .populate('food')
             .populate('foodPartner', 'name restaurantName')
             .sort({ createdAt: -1 });
 
         } catch (popError) {
             console.warn("Population warning in /my-orders:", popError.message);
-            
-            // Fallback query if populate fails
             orders = await Order.find({
                 $or: [
                     { user: userObjectId },
@@ -147,7 +143,7 @@ router.get('/partner-orders', authFoodPartnerMiddleware, async (req, res) => {
     }
 });
 
-// Update order status
+// Update order status (Accepted / Rejected / Completed)
 router.patch('/:orderId/status', authFoodPartnerMiddleware, async (req, res) => {
     try {
         const { status } = req.body;
