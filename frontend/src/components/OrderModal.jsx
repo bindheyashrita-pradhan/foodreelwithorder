@@ -4,63 +4,43 @@ import axios from 'axios';
 const OrderModal = ({ foodItem, onClose }) => {
     const itemName = foodItem?.name || foodItem?.title || foodItem?.foodName || 'Selected Food Item';
 
-    // 🟢 HELPER: Extract all available portions dynamically regardless of how saved in DB
+    // 🟢 DYNAMICALLY PARSE portions ({ small, medium, large }) FROM FOOD MODEL
     const getAvailablePortions = (food) => {
         if (!food) return [{ name: 'Standard / Full', price: 150 }];
 
         const portions = [];
 
-        // 1. Array of Objects e.g. [{ name: 'Half', price: 200 }, ...]
-        if (Array.isArray(food.portions) && food.portions.length > 0) {
+        // 1. Read small, medium, large from food.portions object (matches food.model.js)
+        if (food.portions && typeof food.portions === 'object' && !Array.isArray(food.portions)) {
+            const { small, medium, large } = food.portions;
+
+            if (small && Number(small) > 0) {
+                portions.push({ name: 'Small', price: Number(small) });
+            }
+            if (medium && Number(medium) > 0) {
+                portions.push({ name: 'Medium', price: Number(medium) });
+            }
+            if (large && Number(large) > 0) {
+                portions.push({ name: 'Large', price: Number(large) });
+            }
+        }
+
+        // 2. Fallback: Check if portions is an array of objects/numbers
+        if (portions.length === 0 && Array.isArray(food.portions) && food.portions.length > 0) {
             food.portions.forEach((p, idx) => {
                 if (typeof p === 'object' && p !== null) {
                     portions.push({
                         name: p.name || p.portion || `Portion ${idx + 1}`,
-                        price: Number(p.price || p.rate || food.price || food.basePrice || 150)
+                        price: Number(p.price || p.rate || food.price || 150)
                     });
-                } else if (typeof p === 'number' || typeof p === 'string') {
-                    const names = ['Half', 'Medium', 'Full'];
-                    portions.push({
-                        name: names[idx] || `Portion ${idx + 1}`,
-                        price: Number(p)
-                    });
+                } else if (typeof p === 'number' && Number(p) > 0) {
+                    const names = ['Small', 'Medium', 'Large'];
+                    portions.push({ name: names[idx] || `Option ${idx + 1}`, price: Number(p) });
                 }
             });
         }
 
-        // 2. Object or Array under portionPrices e.g. [200, 250, 300] or { half: 200, medium: 250, full: 300 }
-        if (portions.length === 0 && food.portionPrices) {
-            if (Array.isArray(food.portionPrices)) {
-                const names = ['Half', 'Medium', 'Full'];
-                food.portionPrices.forEach((val, idx) => {
-                    if (val && Number(val) > 0) {
-                        portions.push({
-                            name: names[idx] || `Option ${idx + 1}`,
-                            price: Number(val)
-                        });
-                    }
-                });
-            } else if (typeof food.portionPrices === 'object') {
-                Object.entries(food.portionPrices).forEach(([key, val]) => {
-                    if (val && Number(val) > 0) {
-                        const nameFormatted = key.charAt(0).toUpperCase() + key.slice(1);
-                        portions.push({
-                            name: nameFormatted,
-                            price: Number(val)
-                        });
-                    }
-                });
-            }
-        }
-
-        // 3. Check for specific fields e.g. halfPrice, mediumPrice, fullPrice
-        if (portions.length === 0) {
-            if (food.halfPrice || food.half) portions.push({ name: 'Half', price: Number(food.halfPrice || food.half) });
-            if (food.mediumPrice || food.medium) portions.push({ name: 'Medium', price: Number(food.mediumPrice || food.medium) });
-            if (food.fullPrice || food.full) portions.push({ name: 'Full', price: Number(food.fullPrice || food.full) });
-        }
-
-        // 4. Fallback to base price or standard price
+        // 3. Fallback to base price
         if (portions.length === 0) {
             const basePrice = Number(food.price || food.basePrice || 150);
             portions.push({ name: 'Standard / Full', price: basePrice });
@@ -77,7 +57,6 @@ const OrderModal = ({ foodItem, onClose }) => {
     const [address, setAddress] = useState('');
     const [loading, setLoading] = useState(false);
 
-    // Sync selected portion if foodItem changes
     useEffect(() => {
         const portions = getAvailablePortions(foodItem);
         if (portions.length > 0) {
@@ -85,7 +64,7 @@ const OrderModal = ({ foodItem, onClose }) => {
         }
     }, [foodItem]);
 
-    const unitPrice = Number(selectedPortion?.price || foodItem?.price || foodItem?.basePrice || 150);
+    const unitPrice = Number(selectedPortion?.price || foodItem?.price || 150);
     const totalPrice = unitPrice * quantity;
 
     const handlePlaceOrder = async (e) => {
@@ -127,7 +106,7 @@ const OrderModal = ({ foodItem, onClose }) => {
                 },
                 { 
                     headers,
-                    withCredentials: true
+                    withCredentials: true 
                 }
             );
 

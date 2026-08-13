@@ -17,13 +17,22 @@ async function createFood(req, res) {
     let portions = { small: 0, medium: price, large: 0 };
     if (req.body.portions) {
       try {
-        portions = typeof req.body.portions === 'string' 
+        const parsedPortions = typeof req.body.portions === 'string' 
           ? JSON.parse(req.body.portions) 
           : req.body.portions;
+
+        // 🟢 FIX 1: Ensure small, medium, and large are saved as numbers
+        portions = {
+          small: Number(parsedPortions.small) || 0,
+          medium: Number(parsedPortions.medium) || price,
+          large: Number(parsedPortions.large) || 0
+        };
       } catch (e) {
         console.warn("Portions parsing fallback:", e.message);
       }
     }
+
+    const partnerId = req.foodPartner?._id || req.foodPartner?.id || req.foodPartner;
 
     const foodItem = await foodModel.create({
       name: req.body.name,
@@ -32,7 +41,7 @@ async function createFood(req, res) {
       category: category,
       portions: portions,
       video: fileUploadResult.url,
-      foodPartner: req.foodPartner._id
+      foodPartner: partnerId
     });
 
     res.status(201).json({
@@ -47,7 +56,8 @@ async function createFood(req, res) {
 
 async function getFoodItems(req, res) {
   try {
-    const rawFoodItems = await foodModel.find({});
+    // 🟢 FIX 2: Populate foodPartner so restaurantName and partner details are attached
+    const rawFoodItems = await foodModel.find({}).populate('foodPartner', 'name restaurantName email');
 
     const foodItems = await Promise.all(
       rawFoodItems.map(async (item) => {
