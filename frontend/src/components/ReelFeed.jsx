@@ -63,10 +63,23 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
   }
 
   return (
-    <div className="reels-page">
-      <div className="reels-feed" role="list">
+    <div className="reels-page" style={{ width: '100vw', minHeight: '100vh', margin: 0, padding: 0, backgroundColor: '#000000', overflowX: 'hidden' }}>
+      
+      {/* 🟢 INLINE RESET: Removes white gaps from body/root edges */}
+      <style>{`
+        html, body, #root {
+          margin: 0 !important;
+          padding: 0 !important;
+          background-color: #000000 !important;
+          overflow-x: hidden !important;
+          width: 100% !important;
+          min-height: 100vh !important;
+        }
+      `}</style>
+
+      <div className="reels-feed" role="list" style={{ width: '100%', margin: 0, padding: 0 }}>
         {items.length === 0 && (
-          <div className="empty-state">
+          <div className="empty-state" style={{ padding: '60px 20px', textAlign: 'center', color: '#a1a1aa' }}>
             <p>{emptyMessage}</p>
           </div>
         )}
@@ -79,7 +92,21 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
           const currentCommentCount = baseCommentCount + (commentCounts[item._id] || 0);
 
           return (
-            <section key={item._id} className="reel" role="listitem">
+            <section 
+              key={item._id} 
+              className="reel" 
+              role="listitem"
+              style={{
+                width: '100vw',
+                height: '100vh',
+                margin: 0,
+                padding: 0,
+                position: 'relative',
+                overflow: 'hidden',
+                backgroundColor: '#000000'
+              }}
+            >
+              {/* 🟢 FULL BLEED EDGE-TO-EDGE VIDEO */}
               <video 
                 ref={setVideoRef(item._id)} 
                 className="reel-video" 
@@ -89,7 +116,14 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
                 loop 
                 preload="metadata"
                 onClick={toggleMute}
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'cover',
+                  display: 'block'
+                }}
               />
+              
               <div className="reel-overlay" style={{ pointerEvents: 'none' }}>
                 <div className="reel-overlay-gradient" aria-hidden="true" />
                 
