@@ -42,8 +42,6 @@ const MyOrders = () => {
                 }
             );
 
-            console.log("My Orders response:", res.data);
-
             let fetchedOrders = [];
             if (Array.isArray(res.data)) {
                 fetchedOrders = res.data;
@@ -66,18 +64,55 @@ const MyOrders = () => {
         fetchUserOrders();
     }, []);
 
-    // 🔴 FULL PAGE DARK BACKGROUND WRAPPER
+    // 🟢 HANDLE DELETE ORDER FOR USER
+    const handleDeleteOrder = async (orderId) => {
+        if (!window.confirm("Are you sure you want to remove this order from your order history?")) {
+            return;
+        }
+
+        try {
+            let token = localStorage.getItem('token') || localStorage.getItem('userToken');
+            if (!token) {
+                const storedUser = localStorage.getItem('user');
+                if (storedUser) {
+                    try { token = JSON.parse(storedUser).token; } catch (e) {}
+                }
+            }
+
+            const headers = {};
+            if (token) headers['Authorization'] = `Bearer ${token}`;
+
+            const API_BASE_URL = import.meta.env.VITE_API_URL || '';
+            const res = await axios.delete(
+                `${API_BASE_URL}/api/orders/${orderId}`,
+                { 
+                    headers, 
+                    withCredentials: true 
+                }
+            );
+
+            if (res.data?.success) {
+                alert('Order deleted successfully!');
+                // Instantly remove order from state
+                setOrders(prev => prev.filter(order => order._id !== orderId));
+            }
+        } catch (err) {
+            console.error("Delete order error:", err);
+            alert(err.response?.data?.message || 'Failed to delete order.');
+        }
+    };
+
     return (
         <div style={{ 
             minHeight: '100vh', 
-            backgroundColor: '#09090b', // Fixes white background issue
+            backgroundColor: '#09090b', 
             color: '#ffffff', 
             fontFamily: 'system-ui, -apple-system, sans-serif',
             padding: '30px 16px 100px 16px'
         }}>
             <div style={{ maxWidth: '750px', margin: '0 auto' }}>
                 
-                {/* 🟢 FIXED TITLE VISIBILITY */}
+                {/* TITLE */}
                 <h1 style={{ 
                     fontSize: '24px', 
                     fontWeight: '700', 
@@ -136,13 +171,12 @@ const MyOrders = () => {
                     </div>
                 )}
 
-                {/* 🟢 ORDERS LIST */}
+                {/* ORDERS LIST */}
                 {!loading && !error && orders.length > 0 && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                         {orders.map((order, index) => {
                             const orderId = order?._id ? String(order._id).slice(-6) : `ORD-${index + 1}`;
                             
-                            // 🟢 EXTENSIVE FOOD TITLE EXTRACTION (Checks all backend variations)
                             const foodTitle = order?.food?.name || 
                                                order?.food?.title || 
                                                order?.foodId?.name || 
@@ -187,16 +221,41 @@ const MyOrders = () => {
                                             </h3>
                                         </div>
 
-                                        <span style={{ 
-                                            padding: '4px 12px', 
-                                            borderRadius: '999px', 
-                                            fontSize: '12px', 
-                                            fontWeight: '700', 
-                                            background: status === 'Accepted' ? 'rgba(34, 197, 94, 0.2)' : status === 'Rejected' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(234, 179, 8, 0.2)',
-                                            color: status === 'Accepted' ? '#22c55e' : status === 'Rejected' ? '#ef4444' : '#eab308'
-                                        }}>
-                                            {status}
-                                        </span>
+                                        {/* Status Badge + Delete Button Row */}
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                            <span style={{ 
+                                                padding: '4px 12px', 
+                                                borderRadius: '999px', 
+                                                fontSize: '12px', 
+                                                fontWeight: '700', 
+                                                background: status === 'Accepted' ? 'rgba(34, 197, 94, 0.2)' : status === 'Rejected' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(234, 179, 8, 0.2)',
+                                                color: status === 'Accepted' ? '#22c55e' : status === 'Rejected' ? '#ef4444' : '#eab308'
+                                            }}>
+                                                {status}
+                                            </span>
+
+                                            {/* 🟢 DELETE BUTTON FOR USER */}
+                                            <button 
+                                                onClick={() => handleDeleteOrder(order._id)}
+                                                title="Delete Order"
+                                                style={{
+                                                    background: 'rgba(239, 68, 68, 0.15)',
+                                                    color: '#ef4444',
+                                                    border: '1px solid rgba(239, 68, 68, 0.3)',
+                                                    padding: '4px 10px',
+                                                    borderRadius: '8px',
+                                                    fontSize: '12px',
+                                                    fontWeight: '700',
+                                                    cursor: 'pointer',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '4px',
+                                                    transition: 'all 0.2s ease'
+                                                }}
+                                            >
+                                                🗑️ Delete
+                                            </button>
+                                        </div>
                                     </div>
 
                                     <div style={{ fontSize: '13px', color: '#d4d4d8', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
