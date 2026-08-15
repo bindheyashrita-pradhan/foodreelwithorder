@@ -2,6 +2,9 @@ const express = require('express');
 const mongoose = require('mongoose');
 const Order = require('../models/order.model');
 
+// 🟢 FIX 1: Require Food model for automatic partner fallback lookup
+const Food = require('../models/food.model');
+
 // Pre-load food and partner models for population
 try {
     require('../models/food.model');
@@ -35,16 +38,25 @@ router.post('/create', authUserMiddleware, async (req, res) => {
             ? new mongoose.Types.ObjectId(rawUserId)
             : rawUserId;
 
-        const validPartnerId = mongoose.Types.ObjectId.isValid(foodPartnerId)
-            ? new mongoose.Types.ObjectId(foodPartnerId)
-            : foodPartnerId;
+        // 🟢 FIX 2: If foodPartnerId is missing or "undefined", fetch it directly from the Food item!
+        let partnerId = foodPartnerId;
+        if (!partnerId || partnerId === 'undefined' || partnerId === 'null') {
+            const foodDoc = await Food.findById(foodId);
+            if (foodDoc && foodDoc.foodPartner) {
+                partnerId = foodDoc.foodPartner;
+            }
+        }
+
+        const validPartnerId = (partnerId && mongoose.Types.ObjectId.isValid(partnerId))
+            ? new mongoose.Types.ObjectId(partnerId)
+            : partnerId;
 
         const contactPhone = phone || phoneNumber || '';
 
         const newOrder = await Order.create({
             user: validUserId,
             food: foodId,
-            foodPartner: validPartnerId,
+            foodPartner: validPartnerId, // 👈 Guaranteed valid partner ObjectId
             portion: portion || 'Standard',
             price: Number(price) || 0,
             quantity: Number(quantity) || 1,
@@ -52,6 +64,8 @@ router.post('/create', authUserMiddleware, async (req, res) => {
             phoneNumber: contactPhone,
             deliveryAddress
         });
+
+        console.log("🟢 Order created successfully ID:", newOrder._id, "for partner ID:", validPartnerId);
 
         res.status(201).json({ success: true, order: newOrder });
     } catch (error) {
@@ -103,7 +117,7 @@ router.get('/my-orders', authUserMiddleware, async (req, res) => {
 
 // ---------------- FOOD PARTNER ROUTES ----------------
 
-// Get all orders received by logged-in food partner
+// 🟢 FIX 3: Get all orders received by logged-in food partner (Matches ObjectId & Strings)
 router.get('/partner-orders', authFoodPartnerMiddleware, async (req, res) => {
     try {
         const rawPartnerId = req.foodPartner?._id || req.foodPartner?.id || req.foodPartner;
@@ -120,11 +134,12 @@ router.get('/partner-orders', authFoodPartnerMiddleware, async (req, res) => {
             orders = await Order.find({
                 $or: [
                     { foodPartner: partnerObjectId },
-                    { foodPartner: rawPartnerId.toString() }
+                    { foodPartner: rawPartnerId.toString() },
+                    { foodPartner: String(rawPartnerId) }
                 ]
             })
             .populate('food')
-            .populate('user', 'name email phone')
+            .populate('user', 'name fullName email phone')
             .sort({ createdAt: -1 });
         } catch (popErr) {
             console.warn("Population fallback warning in /partner-orders:", popErr.message);
@@ -135,6 +150,8 @@ router.get('/partner-orders', authFoodPartnerMiddleware, async (req, res) => {
                 ]
             }).sort({ createdAt: -1 });
         }
+
+        console.log("📦 Partner orders fetched:", orders.length, "for partner:", partnerObjectId);
 
         res.status(200).json({ success: true, orders });
     } catch (error) {
