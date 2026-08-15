@@ -10,7 +10,6 @@ const OrderModal = ({ foodItem, onClose }) => {
 
         const portions = [];
 
-        // 1. Read small, medium, large from food.portions object (matches food.model.js)
         if (food.portions && typeof food.portions === 'object' && !Array.isArray(food.portions)) {
             const { small, medium, large } = food.portions;
 
@@ -25,7 +24,6 @@ const OrderModal = ({ foodItem, onClose }) => {
             }
         }
 
-        // 2. Fallback: Check if portions is an array of objects/numbers
         if (portions.length === 0 && Array.isArray(food.portions) && food.portions.length > 0) {
             food.portions.forEach((p, idx) => {
                 if (typeof p === 'object' && p !== null) {
@@ -40,7 +38,6 @@ const OrderModal = ({ foodItem, onClose }) => {
             });
         }
 
-        // 3. Fallback to base price
         if (portions.length === 0) {
             const basePrice = Number(food.price || food.basePrice || 150);
             portions.push({ name: 'Standard / Full', price: basePrice });
@@ -65,7 +62,8 @@ const OrderModal = ({ foodItem, onClose }) => {
     }, [foodItem]);
 
     const unitPrice = Number(selectedPortion?.price || foodItem?.price || 150);
-    const totalPrice = unitPrice * quantity;
+    const validQty = Math.max(1, Number(quantity) || 1);
+    const totalPrice = unitPrice * validQty;
 
     const handlePlaceOrder = async (e) => {
         e.preventDefault();
@@ -100,7 +98,7 @@ const OrderModal = ({ foodItem, onClose }) => {
                     foodPartnerId: partnerId,
                     portion: selectedPortion?.name || 'Standard',
                     price: totalPrice,
-                    quantity: quantity,
+                    quantity: validQty,
                     phone: phone,
                     deliveryAddress: address
                 },
@@ -236,7 +234,8 @@ const OrderModal = ({ foodItem, onClose }) => {
                                     fontSize: 13,
                                     fontWeight: 600,
                                     outline: 'none',
-                                    boxSizing: 'border-box'
+                                    boxSizing: 'border-box',
+                                    height: '38px'
                                 }}
                             >
                                 {availablePortions.map((p, idx) => (
@@ -247,28 +246,81 @@ const OrderModal = ({ foodItem, onClose }) => {
                             </select>
                         </div>
 
+                        {/* 🟢 FIXED QUANTITY INPUT WITH STEPPER BUTTONS */}
                         <div>
                             <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#d4d4d8', marginBottom: 6 }}>
                                 Quantity
                             </label>
-                            <input 
-                                type="number" 
-                                min="1" 
-                                value={quantity}
-                                onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-                                style={{
-                                    width: '100%',
-                                    background: '#09090b',
-                                    color: '#ffffff',
-                                    border: '1px solid #3f3f46',
-                                    borderRadius: 8,
-                                    padding: '10px 12px',
-                                    fontSize: 13,
-                                    fontWeight: 600,
-                                    outline: 'none',
-                                    boxSizing: 'border-box'
-                                }}
-                            />
+                            <div style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                background: '#09090b',
+                                border: '1px solid #3f3f46',
+                                borderRadius: 8,
+                                overflow: 'hidden',
+                                height: '38px'
+                            }}>
+                                <button
+                                    type="button"
+                                    onClick={() => setQuantity(prev => Math.max(1, (Number(prev) || 1) - 1))}
+                                    style={{
+                                        width: 36,
+                                        height: '100%',
+                                        background: '#27272a',
+                                        color: '#fff',
+                                        border: 'none',
+                                        fontSize: 16,
+                                        fontWeight: 700,
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    -
+                                </button>
+                                <input 
+                                    type="number" 
+                                    min="1" 
+                                    value={quantity}
+                                    onChange={(e) => {
+                                        const val = e.target.value;
+                                        if (val === '') {
+                                            setQuantity(''); // 🟢 Allows backspacing to type any number
+                                        } else {
+                                            const num = parseInt(val, 10);
+                                            if (!isNaN(num)) setQuantity(num);
+                                        }
+                                    }}
+                                    onBlur={() => {
+                                        if (!quantity || Number(quantity) < 1) setQuantity(1);
+                                    }}
+                                    style={{
+                                        flex: 1,
+                                        width: '100%',
+                                        background: 'transparent',
+                                        color: '#ffffff',
+                                        border: 'none',
+                                        textAlign: 'center',
+                                        fontSize: 14,
+                                        fontWeight: 700,
+                                        outline: 'none'
+                                    }}
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setQuantity(prev => (Number(prev) || 1) + 1)}
+                                    style={{
+                                        width: 36,
+                                        height: '100%',
+                                        background: '#27272a',
+                                        color: '#fff',
+                                        border: 'none',
+                                        fontSize: 16,
+                                        fontWeight: 700,
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    +
+                                </button>
+                            </div>
                         </div>
                     </div>
 
