@@ -6,10 +6,13 @@ import OrderModal from './OrderModal'
 const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' }) => {
   const videoRefs = useRef(new Map())
   const searchInputRef = useRef(null)
-  
+  const lastTapRef = useRef({ time: 0, itemId: null })
+
   const [isMuted, setIsMuted] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [isSearchOpen, setIsSearchOpen] = useState(false)
+  const [selectedCategory, setSelectedCategory] = useState('All') // 🟢 State for Category Filters
+  const [heartAnim, setHeartAnim] = useState(null) // 🟢 State for Double-Tap Heart Pop
   const [activeCommentFoodId, setActiveCommentFoodId] = useState(null)
   const [activeOrderFood, setActiveOrderFood] = useState(null)
   const [commentCounts, setCommentCounts] = useState({})
@@ -20,7 +23,15 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
     }
   }, [isSearchOpen])
 
+  // 🟢 FILTER BY CATEGORY & SEARCH QUERY
   const filteredItems = items.filter((item) => {
+    // 1. Category Filter
+    if (selectedCategory !== 'All') {
+      const itemCat = (item?.category || 'Veg').toLowerCase();
+      if (itemCat !== selectedCategory.toLowerCase()) return false;
+    }
+
+    // 2. Search Query Filter
     if (!searchQuery.trim()) return true;
     const foodName = (item?.name || item?.title || item?.foodName || '').toLowerCase();
     const description = (item?.description || '').toLowerCase();
@@ -64,6 +75,29 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
     })
   }
 
+  // 🟢 DOUBLE TAP TO LIKE HANDLER
+  const handleVideoClick = (e, item) => {
+    const now = Date.now();
+    const DOUBLE_TAP_DELAY = 300; // ms
+
+    if (lastTapRef.current.itemId === item._id && (now - lastTapRef.current.time) < DOUBLE_TAP_DELAY) {
+      // Double tap detected!
+      const rect = e.currentTarget.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+
+      setHeartAnim({ id: item._id, x, y });
+      setTimeout(() => setHeartAnim(null), 800);
+
+      if (onLike) onLike(item);
+      lastTapRef.current = { time: 0, itemId: null };
+    } else {
+      // Single tap -> toggle mute
+      lastTapRef.current = { time: now, itemId: item._id };
+      toggleMute();
+    }
+  }
+
   const handleCommentAdded = (foodId) => {
     setCommentCounts((prev) => ({
       ...prev,
@@ -83,7 +117,7 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
   return (
     <div className="reels-page" style={{ width: '100vw', minHeight: '100vh', margin: 0, padding: 0, backgroundColor: '#000000', overflowX: 'hidden', position: 'relative' }}>
       
-      {/* 🟢 2026 MODERN GLASS & ANIMATION STYLES */}
+      {/* 🟢 2026 UI/UX ANIMATIONS & GLASS STYLES */}
       <style>{`
         html, body, #root {
           margin: 0 !important;
@@ -100,6 +134,12 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
           50% { transform: scale(0.94) rotate(3deg); }
           75% { transform: scale(1.05) rotate(-1deg); }
           100% { transform: scale(1) rotate(0deg); }
+        }
+
+        @keyframes heartPopUp {
+          0% { transform: scale(0.3) rotate(-10deg); opacity: 0; }
+          50% { transform: scale(1.4) rotate(0deg); opacity: 1; }
+          100% { transform: scale(1) rotate(5deg); opacity: 0; }
         }
 
         .spring-btn {
@@ -125,99 +165,160 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
           box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4) !important;
         }
 
-        .search-bar-wrap {
-          transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+        /* Hide scrollbars for Category Chips */
+        .category-scroll::-webkit-scrollbar {
+          display: none;
+        }
+        .category-scroll {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
         }
       `}</style>
 
-      {/* 🟢 2026 HEADER SEARCH PILL (POSITIONED CLEANLY AT TOP) */}
-      <div 
-        className="search-bar-wrap"
-        style={{
-          position: 'fixed',
-          top: '64px',
-          right: '16px',
-          zIndex: 9999,
-          width: isSearchOpen ? 'calc(100vw - 32px)' : 'auto',
-          maxWidth: isSearchOpen ? '500px' : '140px',
-          left: isSearchOpen ? '50%' : 'auto',
-          transform: isSearchOpen ? 'translateX(-50%)' : 'none'
-        }}
-      >
-        {!isSearchOpen ? (
-          /* COLLAPSED: Sleek Frosted Glass Search Pill */
-          <button
-            type="button"
-            className="spring-btn glass-pill"
-            onClick={() => setIsSearchOpen(true)}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              padding: '8px 14px',
-              borderRadius: '999px',
-              color: '#ffffff',
-              fontSize: '13px',
-              fontWeight: '600',
-              cursor: 'pointer'
-            }}
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="11" cy="11" r="8"></circle>
-              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-            </svg>
-            <span>Search</span>
-          </button>
-        ) : (
-          /* EXPANDED: Full Width Glass Search Input */
-          <div className="glass-pill" style={{ display: 'flex', alignItems: 'center', width: '100%', borderRadius: '999px', padding: '4px 6px 4px 16px' }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#eab308" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px', flexShrink: 0 }}>
-              <circle cx="11" cy="11" r="8"></circle>
-              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-            </svg>
-            <input 
-              ref={searchInputRef}
-              type="text" 
-              placeholder="Search dishes (e.g. Pancake, Biryani)..." 
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              style={{
-                width: '100%',
-                height: '38px',
-                background: 'transparent',
-                border: 'none',
-                color: '#ffffff',
-                fontSize: '13px',
-                fontWeight: '500',
-                outline: 'none'
-              }}
-            />
-            <button 
+      {/* 🟢 TOP HEADER AREA: SEARCH PILL + CATEGORY CHIPS */}
+      <div style={{
+        position: 'fixed',
+        top: '64px',
+        left: 0,
+        right: 0,
+        zIndex: 9999,
+        padding: '0 16px',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: '8px',
+        pointerEvents: 'none'
+      }}>
+        
+        {/* 1. SEARCH PILL / BAR */}
+        <div 
+          style={{
+            pointerEvents: 'auto',
+            width: isSearchOpen ? '100%' : 'auto',
+            maxWidth: isSearchOpen ? '500px' : '140px',
+            transition: 'all 0.35s cubic-bezier(0.16, 1, 0.3, 1)'
+          }}
+        >
+          {!isSearchOpen ? (
+            <button
               type="button"
-              className="spring-btn"
-              onClick={() => {
-                setIsSearchOpen(false);
-                setSearchQuery('');
-              }}
+              className="spring-btn glass-pill"
+              onClick={() => setIsSearchOpen(true)}
               style={{
-                background: 'rgba(255,255,255,0.15)',
-                border: 'none',
-                color: '#ffffff',
-                width: '28px',
-                height: '28px',
-                borderRadius: '50%',
-                fontSize: '12px',
-                cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center',
-                fontWeight: 'bold',
-                flexShrink: 0,
-                marginLeft: '6px'
+                gap: '8px',
+                padding: '8px 14px',
+                borderRadius: '999px',
+                color: '#ffffff',
+                fontSize: '13px',
+                fontWeight: '600',
+                cursor: 'pointer'
               }}
             >
-              ✕
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+              <span>Search</span>
             </button>
+          ) : (
+            <div className="glass-pill" style={{ display: 'flex', alignItems: 'center', width: '100%', borderRadius: '999px', padding: '4px 6px 4px 16px' }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#eab308" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px', flexShrink: 0 }}>
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+              <input 
+                ref={searchInputRef}
+                type="text" 
+                placeholder="Search dishes (e.g. Pancake, Biryani)..." 
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                style={{
+                  width: '100%',
+                  height: '38px',
+                  background: 'transparent',
+                  border: 'none',
+                  color: '#ffffff',
+                  fontSize: '13px',
+                  fontWeight: '500',
+                  outline: 'none'
+                }}
+              />
+              <button 
+                type="button"
+                className="spring-btn"
+                onClick={() => {
+                  setIsSearchOpen(false);
+                  setSearchQuery('');
+                }}
+                style={{
+                  background: 'rgba(255,255,255,0.15)',
+                  border: 'none',
+                  color: '#ffffff',
+                  width: '28px',
+                  height: '28px',
+                  borderRadius: '50%',
+                  fontSize: '12px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontWeight: 'bold',
+                  flexShrink: 0,
+                  marginLeft: '6px'
+                }}
+              >
+                ✕
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* 🟢 2. QUICK CATEGORY FILTER CHIPS */}
+        {!isSearchOpen && (
+          <div 
+            className="category-scroll"
+            style={{
+              pointerEvents: 'auto',
+              display: 'flex',
+              gap: '8px',
+              overflowX: 'auto',
+              maxWidth: '100vw',
+              padding: '2px 10px',
+              WebkitOverflowScrolling: 'touch'
+            }}
+          >
+            {[
+              { id: 'All', label: 'All' },
+              { id: 'Veg', label: '🟢 Veg' },
+              { id: 'Non-Veg', label: '🔴 Non-Veg' },
+              { id: 'Vegan', label: '🌱 Vegan' },
+              { id: 'Beverage', label: '🥤 Beverage' }
+            ].map((cat) => {
+              const isActive = selectedCategory.toLowerCase() === cat.id.toLowerCase();
+              return (
+                <button
+                  key={cat.id}
+                  type="button"
+                  className="spring-btn glass-pill"
+                  onClick={() => setSelectedCategory(cat.id)}
+                  style={{
+                    padding: '6px 14px',
+                    borderRadius: '999px',
+                    fontSize: '12px',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                    background: isActive ? '#eab308' : 'rgba(18, 18, 20, 0.65)',
+                    color: isActive ? '#000000' : '#ffffff',
+                    border: isActive ? '1px solid #eab308' : '1px solid rgba(255, 255, 255, 0.15)'
+                  }}
+                >
+                  {cat.label}
+                </button>
+              );
+            })}
           </div>
         )}
       </div>
@@ -225,19 +326,20 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
       {/* REELS FEED */}
       <div className="reels-feed" role="list" style={{ width: '100%', margin: 0, padding: 0 }}>
         {filteredItems.length === 0 && (
-          <div className="empty-state" style={{ padding: '140px 20px 60px 20px', textAlign: 'center', color: '#a1a1aa' }}>
+          <div className="empty-state" style={{ padding: '160px 20px 60px 20px', textAlign: 'center', color: '#a1a1aa' }}>
             <p style={{ fontSize: '18px', fontWeight: '600' }}>
-              {searchQuery ? `No dishes found matching "${searchQuery}"` : emptyMessage}
+              {searchQuery ? `No dishes found matching "${searchQuery}"` : `No ${selectedCategory} dishes available right now.`}
             </p>
-            {searchQuery && (
-              <button 
-                className="spring-btn"
-                onClick={() => setSearchQuery('')}
-                style={{ marginTop: '14px', padding: '10px 20px', background: '#eab308', color: '#000', border: 'none', borderRadius: '999px', fontWeight: '700', cursor: 'pointer' }}
-              >
-                Clear Search
-              </button>
-            )}
+            <button 
+              className="spring-btn"
+              onClick={() => {
+                setSearchQuery('');
+                setSelectedCategory('All');
+              }}
+              style={{ marginTop: '14px', padding: '10px 20px', background: '#eab308', color: '#000', border: 'none', borderRadius: '999px', fontWeight: '700', cursor: 'pointer' }}
+            >
+              Reset Filters
+            </button>
           </div>
         )}
 
@@ -246,7 +348,10 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
             ? item.foodPartner._id 
             : (item.foodPartner || item.partnerId);
 
+          const restaurantName = item?.foodPartner?.restaurantName || item?.foodPartner?.name || 'Food Partner';
           const foodDishName = item?.name || item?.title || item?.foodName || 'Dish Item';
+          const price = item?.price || item?.basePrice || item?.portions?.medium || item?.portions?.small || 0;
+
           const baseCommentCount = item.commentsCount ?? (Array.isArray(item.comments) ? item.comments.length : 0);
           const currentCommentCount = baseCommentCount + (commentCounts[item._id] || 0);
 
@@ -265,7 +370,7 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
                 backgroundColor: '#000000'
               }}
             >
-              {/* VIDEO */}
+              {/* VIDEO WITH DOUBLE TAP HANDLER */}
               <video 
                 ref={setVideoRef(item._id)} 
                 className="reel-video" 
@@ -274,14 +379,31 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
                 playsInline 
                 loop 
                 preload="metadata"
-                onClick={toggleMute}
+                onClick={(e) => handleVideoClick(e, item)}
                 style={{
                   width: '100%',
                   height: '100%',
                   objectFit: 'cover',
-                  display: 'block'
+                  display: 'block',
+                  cursor: 'pointer'
                 }}
               />
+
+              {/* 🟢 DOUBLE-TAP HEART POP-UP ANIMATION */}
+              {heartAnim && heartAnim.id === item._id && (
+                <div style={{
+                  position: 'absolute',
+                  left: heartAnim.x - 40,
+                  top: heartAnim.y - 40,
+                  pointerEvents: 'none',
+                  zIndex: 9999,
+                  fontSize: '80px',
+                  animation: 'heartPopUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+                  filter: 'drop-shadow(0 4px 12px rgba(239,68,68,0.8))'
+                }}>
+                  ❤️
+                </div>
+              )}
               
               <div className="reel-overlay" style={{ pointerEvents: 'none' }}>
                 <div className="reel-overlay-gradient" aria-hidden="true" />
@@ -392,18 +514,49 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
                 {/* BOTTOM REEL CONTENT DETAILS */}
                 <div className="reel-content" style={{ pointerEvents: 'auto', paddingBottom: '70px' }}>
                   
-                  {/* Dish Name */}
-                  <h2 style={{
-                    fontSize: '22px',
+                  {/* 🟢 RESTAURANT BRAND BADGE */}
+                  <span style={{
+                    fontSize: '11px',
+                    color: '#eab308',
                     fontWeight: '800',
-                    color: '#ffffff',
-                    margin: '0 0 6px 0',
-                    textTransform: 'capitalize',
-                    textShadow: '0 2px 12px rgba(0,0,0,0.9)',
-                    letterSpacing: '-0.01em'
+                    letterSpacing: '0.06em',
+                    textTransform: 'uppercase',
+                    display: 'block',
+                    marginBottom: '2px',
+                    textShadow: '0 2px 6px rgba(0,0,0,0.8)'
                   }}>
-                    {foodDishName}
-                  </h2>
+                    {restaurantName}
+                  </span>
+
+                  {/* 🟢 DISH NAME + GLOWING PRICE BADGE */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px', flexWrap: 'wrap' }}>
+                    <h2 style={{
+                      fontSize: '22px',
+                      fontWeight: '800',
+                      color: '#ffffff',
+                      margin: 0,
+                      textTransform: 'capitalize',
+                      textShadow: '0 2px 12px rgba(0,0,0,0.9)',
+                      letterSpacing: '-0.01em'
+                    }}>
+                      {foodDishName}
+                    </h2>
+
+                    {price > 0 && (
+                      <span style={{
+                        background: 'rgba(234, 179, 8, 0.25)',
+                        color: '#eab308',
+                        border: '1px solid rgba(234, 179, 8, 0.4)',
+                        padding: '2px 10px',
+                        borderRadius: '999px',
+                        fontSize: '13px',
+                        fontWeight: '800',
+                        backdropFilter: 'blur(8px)'
+                      }}>
+                        ₹{price}
+                      </span>
+                    )}
+                  </div>
 
                   {item.description && (
                     <p className="reel-description" title={item.description} style={{ fontSize: '13px', color: '#e4e4e7', marginBottom: '10px' }}>
