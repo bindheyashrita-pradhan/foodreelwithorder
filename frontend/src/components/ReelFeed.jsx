@@ -5,13 +5,23 @@ import OrderModal from './OrderModal'
 
 const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' }) => {
   const videoRefs = useRef(new Map())
+  const searchInputRef = useRef(null)
+  
   const [isMuted, setIsMuted] = useState(true)
-  const [searchQuery, setSearchQuery] = useState('') // 🟢 State for search input
+  const [searchQuery, setSearchQuery] = useState('')
+  const [isSearchOpen, setIsSearchOpen] = useState(false) // 🟢 Search collapse state
   const [activeCommentFoodId, setActiveCommentFoodId] = useState(null)
   const [activeOrderFood, setActiveOrderFood] = useState(null)
   const [commentCounts, setCommentCounts] = useState({})
 
-  // 🟢 FILTER VIDEOS INSTANTLY BASED ON FOOD DISH NAME OR DESCRIPTION
+  // Auto-focus search input when opened
+  useEffect(() => {
+    if (isSearchOpen && searchInputRef.current) {
+      searchInputRef.current.focus()
+    }
+  }, [isSearchOpen])
+
+  // Filter items based on dish name or description
   const filteredItems = items.filter((item) => {
     if (!searchQuery.trim()) return true;
     const foodName = (item?.name || item?.title || item?.foodName || '').toLowerCase();
@@ -75,7 +85,7 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
   return (
     <div className="reels-page" style={{ width: '100vw', minHeight: '100vh', margin: 0, padding: 0, backgroundColor: '#000000', overflowX: 'hidden', position: 'relative' }}>
       
-      {/* GLOBAL FULL-BLEED RESET */}
+      {/* 🟢 CSS ANIMATIONS & JIGGLE EFFECT */}
       <style>{`
         html, body, #root {
           margin: 0 !important;
@@ -85,69 +95,145 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
           width: 100% !important;
           min-height: 100vh !important;
         }
+
+        /* 🎈 SATISFYING JIGGLE/POP ANIMATION ON TAP */
+        @keyframes popJiggle {
+          0% { transform: scale(1); }
+          30% { transform: scale(1.22) rotate(-6deg); }
+          50% { transform: scale(0.92) rotate(4deg); }
+          75% { transform: scale(1.08) rotate(-2deg); }
+          100% { transform: scale(1) rotate(0deg); }
+        }
+
+        .jiggle-btn {
+          transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), background-color 0.2s ease, box-shadow 0.2s ease;
+          cursor: pointer;
+          user-select: none;
+          -webkit-tap-highlight-color: transparent;
+        }
+
+        .jiggle-btn:hover {
+          transform: scale(1.08);
+        }
+
+        .jiggle-btn:active {
+          animation: popJiggle 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+        }
+
+        /* Smooth Expand/Collapse Search Container */
+        .search-container {
+          transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
       `}</style>
 
-      {/* 🟢 FLOATING INSTANT SEARCH BAR */}
-      <div style={{
-        position: 'fixed',
-        top: '68px', // Positioned below top navbar
-        left: '50%',
-        transform: 'translateX(-50%)',
-        zIndex: 9999,
-        width: '90%',
-        maxWidth: '440px'
-      }}>
-        <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-          <input 
-            type="text" 
-            placeholder="🔍 Search food (e.g. Pancake, Biryani, Pizza)..." 
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+      {/* 🟢 SLEEK COLLAPSIBLE FLOATING SEARCH BUTTON / BAR */}
+      <div 
+        className="search-container"
+        style={{
+          position: 'fixed',
+          top: '68px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          zIndex: 9999,
+          width: isSearchOpen ? '90%' : '48px',
+          maxWidth: isSearchOpen ? '440px' : '48px',
+          height: '48px'
+        }}
+      >
+        {!isSearchOpen ? (
+          /* COLLAPSED: Floating Glass Search Icon Button */
+          <button
+            type="button"
+            className="jiggle-btn"
+            onClick={() => setIsSearchOpen(true)}
+            aria-label="Open Search"
             style={{
-              width: '100%',
-              padding: '10px 40px 10px 18px',
-              borderRadius: '999px',
-              border: '1px solid rgba(255,255,255,0.25)',
+              width: '48px',
+              height: '48px',
+              borderRadius: '50%',
               background: 'rgba(24, 24, 27, 0.75)',
               backdropFilter: 'blur(12px)',
+              border: '1px solid rgba(255, 255, 255, 0.25)',
               color: '#ffffff',
-              fontSize: '13px',
-              fontWeight: '500',
-              outline: 'none',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
               boxShadow: '0 8px 24px rgba(0,0,0,0.6)',
-              boxSizing: 'border-box'
+              margin: '0 auto'
             }}
-          />
-          {searchQuery && (
+          >
+            <svg width="20" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+          </button>
+        ) : (
+          /* EXPANDED: Translucent Search Input with Close Button */
+          <div style={{ position: 'relative', display: 'flex', alignItems: 'center', width: '100%', height: '100%' }}>
+            <input 
+              ref={searchInputRef}
+              type="text" 
+              placeholder="🔍 Search food (e.g. Pancake, Biryani, Pizza)..." 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={{
+                width: '100%',
+                height: '48px',
+                padding: '0 44px 0 18px',
+                borderRadius: '999px',
+                border: '1px solid rgba(234, 179, 8, 0.5)',
+                background: 'rgba(18, 18, 20, 0.85)',
+                backdropFilter: 'blur(16px)',
+                color: '#ffffff',
+                fontSize: '13px',
+                fontWeight: '500',
+                outline: 'none',
+                boxShadow: '0 12px 32px rgba(0,0,0,0.8)',
+                boxSizing: 'border-box'
+              }}
+            />
             <button 
-              onClick={() => setSearchQuery('')}
+              type="button"
+              className="jiggle-btn"
+              onClick={() => {
+                setIsSearchOpen(false);
+                setSearchQuery('');
+              }}
               style={{
                 position: 'absolute',
                 right: '12px',
-                background: 'transparent',
+                background: 'rgba(255,255,255,0.15)',
                 border: 'none',
-                color: '#a1a1aa',
-                fontSize: '16px',
+                color: '#ffffff',
+                width: '28px',
+                height: '28px',
+                borderRadius: '50%',
+                fontSize: '14px',
                 cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
                 fontWeight: 'bold'
               }}
             >
               ✕
             </button>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
+      {/* REELS FEED LIST */}
       <div className="reels-feed" role="list" style={{ width: '100%', margin: 0, padding: 0 }}>
         {filteredItems.length === 0 && (
-          <div className="empty-state" style={{ padding: '120px 20px 60px 20px', textAlign: 'center', color: '#a1a1aa' }}>
+          <div className="empty-state" style={{ padding: '140px 20px 60px 20px', textAlign: 'center', color: '#a1a1aa' }}>
             <p style={{ fontSize: '18px', fontWeight: '600' }}>
               {searchQuery ? `No dishes found matching "${searchQuery}"` : emptyMessage}
             </p>
             {searchQuery && (
               <button 
+                className="jiggle-btn"
                 onClick={() => setSearchQuery('')}
-                style={{ marginTop: '12px', padding: '8px 16px', background: '#eab308', color: '#000', border: 'none', borderRadius: '8px', fontWeight: '700', cursor: 'pointer' }}
+                style={{ marginTop: '14px', padding: '10px 20px', background: '#eab308', color: '#000', border: 'none', borderRadius: '999px', fontWeight: '700', cursor: 'pointer' }}
               >
                 Clear Search
               </button>
@@ -179,6 +265,7 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
                 backgroundColor: '#000000'
               }}
             >
+              {/* VIDEO */}
               <video 
                 ref={setVideoRef(item._id)} 
                 className="reel-video" 
@@ -201,14 +288,15 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
                 
                 {/* ACTION BUTTONS (Right Column) */}
                 <div className="reel-actions" style={{ pointerEvents: 'auto', zIndex: 999 }}>
-                  {/* Sound Toggle */}
+                  
+                  {/* Sound Toggle Button */}
                   <div className="reel-action-group">
                     <button 
                       onClick={(e) => {
                         e.stopPropagation();
                         toggleMute();
                       }} 
-                      className="reel-action sound-btn" 
+                      className="reel-action sound-btn jiggle-btn" 
                       aria-label={isMuted ? "Unmute" : "Mute"}
                     >
                       {isMuted ? (
@@ -238,7 +326,7 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
                         e.stopPropagation();
                         setActiveOrderFood(item);
                       }} 
-                      className="reel-action order-btn" 
+                      className="reel-action order-btn jiggle-btn" 
                       aria-label="Order Now"
                       style={{ backgroundColor: '#eab308', color: '#000', cursor: 'pointer', pointerEvents: 'auto' }}
                     >
@@ -258,7 +346,7 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
                         e.stopPropagation();
                         if (onLike) onLike(item);
                       }} 
-                      className="reel-action" 
+                      className="reel-action jiggle-btn" 
                       aria-label="Like"
                     >
                       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -271,7 +359,7 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
                   {/* Bookmark Button */}
                   <div className="reel-action-group">
                     <button 
-                      className="reel-action" 
+                      className="reel-action jiggle-btn" 
                       onClick={(e) => {
                         e.stopPropagation();
                         if (onSave) onSave(item);
@@ -288,7 +376,7 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
                   {/* Comments Button */}
                   <div className="reel-action-group">
                     <button 
-                      className="reel-action" 
+                      className="reel-action jiggle-btn" 
                       onClick={(e) => {
                         e.stopPropagation();
                         setActiveCommentFoodId(item._id);
@@ -303,10 +391,10 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
                   </div>
                 </div>
 
-                {/* 🟢 REEL CONTENT DETAILS WITH DISH NAME */}
+                {/* REEL CONTENT DETAILS WITH DISH NAME */}
                 <div className="reel-content" style={{ pointerEvents: 'auto', paddingBottom: '70px' }}>
                   
-                  {/* 🟢 DISH NAME (Uploaded by Food Partner) */}
+                  {/* Dish Name */}
                   <h2 style={{
                     fontSize: '22px',
                     fontWeight: '800',
@@ -326,7 +414,7 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
                   )}
 
                   {partnerId && (
-                    <Link className="visit-store-btn" to={"/food-partner/" + partnerId} aria-label="Visit store">
+                    <Link className="visit-store-btn jiggle-btn" to={"/food-partner/" + partnerId} aria-label="Visit store">
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                         <path d="m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7" />
                         <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
