@@ -6,9 +6,19 @@ import OrderModal from './OrderModal'
 const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' }) => {
   const videoRefs = useRef(new Map())
   const [isMuted, setIsMuted] = useState(true)
+  const [searchQuery, setSearchQuery] = useState('') // 🟢 State for search input
   const [activeCommentFoodId, setActiveCommentFoodId] = useState(null)
   const [activeOrderFood, setActiveOrderFood] = useState(null)
   const [commentCounts, setCommentCounts] = useState({})
+
+  // 🟢 FILTER VIDEOS INSTANTLY BASED ON FOOD DISH NAME OR DESCRIPTION
+  const filteredItems = items.filter((item) => {
+    if (!searchQuery.trim()) return true;
+    const foodName = (item?.name || item?.title || item?.foodName || '').toLowerCase();
+    const description = (item?.description || '').toLowerCase();
+    const query = searchQuery.toLowerCase().trim();
+    return foodName.includes(query) || description.includes(query);
+  });
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -28,7 +38,7 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
     )
     videoRefs.current.forEach((vid) => observer.observe(vid))
     return () => observer.disconnect()
-  }, [items, isMuted])
+  }, [filteredItems, isMuted])
 
   const setVideoRef = (id) => (el) => {
     if (!el) {
@@ -63,9 +73,9 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
   }
 
   return (
-    <div className="reels-page" style={{ width: '100vw', minHeight: '100vh', margin: 0, padding: 0, backgroundColor: '#000000', overflowX: 'hidden' }}>
+    <div className="reels-page" style={{ width: '100vw', minHeight: '100vh', margin: 0, padding: 0, backgroundColor: '#000000', overflowX: 'hidden', position: 'relative' }}>
       
-      {/* 🟢 INLINE RESET: Removes white gaps from body/root edges */}
+      {/* GLOBAL FULL-BLEED RESET */}
       <style>{`
         html, body, #root {
           margin: 0 !important;
@@ -77,17 +87,80 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
         }
       `}</style>
 
+      {/* 🟢 FLOATING INSTANT SEARCH BAR */}
+      <div style={{
+        position: 'fixed',
+        top: '68px', // Positioned below top navbar
+        left: '50%',
+        transform: 'translateX(-50%)',
+        zIndex: 9999,
+        width: '90%',
+        maxWidth: '440px'
+      }}>
+        <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+          <input 
+            type="text" 
+            placeholder="🔍 Search food (e.g. Pancake, Biryani, Pizza)..." 
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            style={{
+              width: '100%',
+              padding: '10px 40px 10px 18px',
+              borderRadius: '999px',
+              border: '1px solid rgba(255,255,255,0.25)',
+              background: 'rgba(24, 24, 27, 0.75)',
+              backdropFilter: 'blur(12px)',
+              color: '#ffffff',
+              fontSize: '13px',
+              fontWeight: '500',
+              outline: 'none',
+              boxShadow: '0 8px 24px rgba(0,0,0,0.6)',
+              boxSizing: 'border-box'
+            }}
+          />
+          {searchQuery && (
+            <button 
+              onClick={() => setSearchQuery('')}
+              style={{
+                position: 'absolute',
+                right: '12px',
+                background: 'transparent',
+                border: 'none',
+                color: '#a1a1aa',
+                fontSize: '16px',
+                cursor: 'pointer',
+                fontWeight: 'bold'
+              }}
+            >
+              ✕
+            </button>
+          )}
+        </div>
+      </div>
+
       <div className="reels-feed" role="list" style={{ width: '100%', margin: 0, padding: 0 }}>
-        {items.length === 0 && (
-          <div className="empty-state" style={{ padding: '60px 20px', textAlign: 'center', color: '#a1a1aa' }}>
-            <p>{emptyMessage}</p>
+        {filteredItems.length === 0 && (
+          <div className="empty-state" style={{ padding: '120px 20px 60px 20px', textAlign: 'center', color: '#a1a1aa' }}>
+            <p style={{ fontSize: '18px', fontWeight: '600' }}>
+              {searchQuery ? `No dishes found matching "${searchQuery}"` : emptyMessage}
+            </p>
+            {searchQuery && (
+              <button 
+                onClick={() => setSearchQuery('')}
+                style={{ marginTop: '12px', padding: '8px 16px', background: '#eab308', color: '#000', border: 'none', borderRadius: '8px', fontWeight: '700', cursor: 'pointer' }}
+              >
+                Clear Search
+              </button>
+            )}
           </div>
         )}
-        {items.map((item) => {
+
+        {filteredItems.map((item) => {
           const partnerId = typeof item.foodPartner === 'object' && item.foodPartner !== null 
             ? item.foodPartner._id 
             : (item.foodPartner || item.partnerId);
 
+          const foodDishName = item?.name || item?.title || item?.foodName || 'Dish Item';
           const baseCommentCount = item.commentsCount ?? (Array.isArray(item.comments) ? item.comments.length : 0);
           const currentCommentCount = baseCommentCount + (commentCounts[item._id] || 0);
 
@@ -106,7 +179,6 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
                 backgroundColor: '#000000'
               }}
             >
-              {/* 🟢 FULL BLEED EDGE-TO-EDGE VIDEO */}
               <video 
                 ref={setVideoRef(item._id)} 
                 className="reel-video" 
@@ -127,8 +199,9 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
               <div className="reel-overlay" style={{ pointerEvents: 'none' }}>
                 <div className="reel-overlay-gradient" aria-hidden="true" />
                 
+                {/* ACTION BUTTONS (Right Column) */}
                 <div className="reel-actions" style={{ pointerEvents: 'auto', zIndex: 999 }}>
-                  {/* Sound Toggle Button */}
+                  {/* Sound Toggle */}
                   <div className="reel-action-group">
                     <button 
                       onClick={(e) => {
@@ -156,14 +229,13 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
                     <div className="reel-action__count">{isMuted ? 'Muted' : 'Sound On'}</div>
                   </div>
 
-                  {/* Order Now Button */}
+                  {/* Order Button */}
                   <div className="reel-action-group" style={{ pointerEvents: 'auto', zIndex: 1000 }}>
                     <button 
                       type="button"
                       onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
-                        console.log("Order button tapped for item:", item);
                         setActiveOrderFood(item);
                       }} 
                       className="reel-action order-btn" 
@@ -196,7 +268,7 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
                     <div className="reel-action__count">{item.likeCount ?? item.likesCount ?? item.likes ?? 0}</div>
                   </div>
 
-                  {/* Bookmark/Save Button */}
+                  {/* Bookmark Button */}
                   <div className="reel-action-group">
                     <button 
                       className="reel-action" 
@@ -231,9 +303,28 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
                   </div>
                 </div>
 
-                {/* Reel Content Details */}
-                <div className="reel-content" style={{ pointerEvents: 'auto' }}>
-                  <p className="reel-description" title={item.description}>{item.description}</p>
+                {/* 🟢 REEL CONTENT DETAILS WITH DISH NAME */}
+                <div className="reel-content" style={{ pointerEvents: 'auto', paddingBottom: '70px' }}>
+                  
+                  {/* 🟢 DISH NAME (Uploaded by Food Partner) */}
+                  <h2 style={{
+                    fontSize: '22px',
+                    fontWeight: '800',
+                    color: '#ffffff',
+                    margin: '0 0 6px 0',
+                    textTransform: 'capitalize',
+                    textShadow: '0 2px 8px rgba(0,0,0,0.9)',
+                    letterSpacing: '-0.01em'
+                  }}>
+                    {foodDishName}
+                  </h2>
+
+                  {item.description && (
+                    <p className="reel-description" title={item.description} style={{ fontSize: '13px', color: '#e4e4e7', marginBottom: '10px' }}>
+                      {item.description}
+                    </p>
+                  )}
+
                   {partnerId && (
                     <Link className="visit-store-btn" to={"/food-partner/" + partnerId} aria-label="Visit store">
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -252,7 +343,7 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
         })}
       </div>
 
-      {/* Render Slide-Up Comment Modal */}
+      {/* Slide-Up Comment Modal */}
       {activeCommentFoodId && (
         <CommentModal 
           foodId={activeCommentFoodId} 
@@ -261,7 +352,7 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
         />
       )}
 
-      {/* Render Slide-Up Order Modal */}
+      {/* Slide-Up Order Modal */}
       {activeOrderFood && (
         <OrderModal 
           foodItem={activeOrderFood} 
