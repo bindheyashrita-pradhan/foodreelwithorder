@@ -7,9 +7,19 @@ const PartnerOrders = () => {
 
     const fetchPartnerOrders = async () => {
         try {
-            const token = localStorage.getItem('token') || 
-                          localStorage.getItem('partnerToken') || 
-                          localStorage.getItem('userToken');
+            // 🟢 FIX: Prioritize partnerToken over generic user tokens
+            let token = localStorage.getItem('partnerToken') || 
+                        localStorage.getItem('token');
+
+            if (!token) {
+                const storedUser = localStorage.getItem('user');
+                if (storedUser) {
+                    try {
+                        const parsed = JSON.parse(storedUser);
+                        token = parsed.token || parsed.partnerToken;
+                    } catch (e) {}
+                }
+            }
 
             const headers = {};
             if (token) headers['Authorization'] = `Bearer ${token}`;
@@ -19,8 +29,10 @@ const PartnerOrders = () => {
                 { headers, withCredentials: true }
             );
 
-            if (res.data?.success) {
-                setOrders(res.data.orders || []);
+            console.log("Partner orders response:", res.data);
+
+            if (res.data?.success || Array.isArray(res.data?.orders)) {
+                setOrders(res.data.orders || res.data || []);
             }
         } catch (err) {
             console.error("Failed to fetch partner orders:", err);
@@ -35,7 +47,7 @@ const PartnerOrders = () => {
 
     const updateOrderStatus = async (orderId, newStatus) => {
         try {
-            const token = localStorage.getItem('token') || localStorage.getItem('partnerToken');
+            let token = localStorage.getItem('partnerToken') || localStorage.getItem('token');
             const headers = {};
             if (token) headers['Authorization'] = `Bearer ${token}`;
 
@@ -57,7 +69,7 @@ const PartnerOrders = () => {
         if (!window.confirm("Are you sure you want to remove this order from your dashboard?")) return;
 
         try {
-            const token = localStorage.getItem('token') || localStorage.getItem('partnerToken');
+            let token = localStorage.getItem('partnerToken') || localStorage.getItem('token');
             const headers = {};
             if (token) headers['Authorization'] = `Bearer ${token}`;
 

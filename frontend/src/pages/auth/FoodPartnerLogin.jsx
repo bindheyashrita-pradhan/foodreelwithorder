@@ -18,16 +18,26 @@ const FoodPartnerLogin = () => {
         password
       }, { withCredentials: true });
 
-      console.log("Login successful:", response.data);
+      console.log("Partner login successful:", response.data);
 
-      if (response.data.foodPartner) {
-        localStorage.setItem('user', JSON.stringify(response.data.foodPartner));
+      if (response.data?.success || response.status === 200 || response.data.foodPartner) {
+        const partner = response.data.foodPartner || response.data;
+        const token = response.data.token || response.data.partnerToken || partner?.token;
+
+        // 🟢 FIX: Save partner info AND token to localStorage
+        localStorage.setItem('user', JSON.stringify(partner));
         localStorage.setItem('userType', 'partner');
-      }
+        
+        if (token) {
+          localStorage.setItem('token', token);
+          localStorage.setItem('partnerToken', token);
+        }
 
-      navigate("/create-food");
+        navigate("/food-partner/orders");
+      }
     } catch (error) {
       console.error("Partner login failed:", error.response?.data || error.message);
+      alert(error.response?.data?.message || 'Partner login failed');
     }
   };
 
