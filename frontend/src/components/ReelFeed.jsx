@@ -9,19 +9,17 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
   
   const [isMuted, setIsMuted] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
-  const [isSearchOpen, setIsSearchOpen] = useState(false) // 🟢 Search collapse state
+  const [isSearchOpen, setIsSearchOpen] = useState(false)
   const [activeCommentFoodId, setActiveCommentFoodId] = useState(null)
   const [activeOrderFood, setActiveOrderFood] = useState(null)
   const [commentCounts, setCommentCounts] = useState({})
 
-  // Auto-focus search input when opened
   useEffect(() => {
     if (isSearchOpen && searchInputRef.current) {
       searchInputRef.current.focus()
     }
   }, [isSearchOpen])
 
-  // Filter items based on dish name or description
   const filteredItems = items.filter((item) => {
     if (!searchQuery.trim()) return true;
     const foodName = (item?.name || item?.title || item?.foodName || '').toLowerCase();
@@ -38,7 +36,7 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
           if (!(video instanceof HTMLVideoElement)) return
           if (entry.isIntersecting && entry.intersectionRatio >= 0.6) {
             video.muted = isMuted
-            video.play().catch(() => { /* ignore autoplay errors */ })
+            video.play().catch(() => {})
           } else {
             video.pause()
           }
@@ -85,7 +83,7 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
   return (
     <div className="reels-page" style={{ width: '100vw', minHeight: '100vh', margin: 0, padding: 0, backgroundColor: '#000000', overflowX: 'hidden', position: 'relative' }}>
       
-      {/* 🟢 CSS ANIMATIONS & JIGGLE EFFECT */}
+      {/* 🟢 2026 MODERN GLASS & ANIMATION STYLES */}
       <style>{`
         html, body, #root {
           margin: 0 !important;
@@ -96,124 +94,126 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
           min-height: 100vh !important;
         }
 
-        /* 🎈 SATISFYING JIGGLE/POP ANIMATION ON TAP */
-        @keyframes popJiggle {
+        @keyframes springPop {
           0% { transform: scale(1); }
-          30% { transform: scale(1.22) rotate(-6deg); }
-          50% { transform: scale(0.92) rotate(4deg); }
-          75% { transform: scale(1.08) rotate(-2deg); }
+          30% { transform: scale(1.18) rotate(-4deg); }
+          50% { transform: scale(0.94) rotate(3deg); }
+          75% { transform: scale(1.05) rotate(-1deg); }
           100% { transform: scale(1) rotate(0deg); }
         }
 
-        .jiggle-btn {
-          transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), background-color 0.2s ease, box-shadow 0.2s ease;
+        .spring-btn {
+          transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.2s ease, box-shadow 0.2s ease;
           cursor: pointer;
           user-select: none;
           -webkit-tap-highlight-color: transparent;
         }
 
-        .jiggle-btn:hover {
-          transform: scale(1.08);
+        .spring-btn:hover {
+          transform: scale(1.06);
         }
 
-        .jiggle-btn:active {
-          animation: popJiggle 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+        .spring-btn:active {
+          animation: springPop 0.38s cubic-bezier(0.16, 1, 0.3, 1) !important;
         }
 
-        /* Smooth Expand/Collapse Search Container */
-        .search-container {
-          transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+        .glass-pill {
+          background: rgba(18, 18, 20, 0.65) !important;
+          backdrop-filter: blur(20px) saturate(180%) !important;
+          -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+          border: 1px solid rgba(255, 255, 255, 0.15) !important;
+          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4) !important;
+        }
+
+        .search-bar-wrap {
+          transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
         }
       `}</style>
 
-      {/* 🟢 SLEEK COLLAPSIBLE FLOATING SEARCH BUTTON / BAR */}
+      {/* 🟢 2026 HEADER SEARCH PILL (POSITIONED CLEANLY AT TOP) */}
       <div 
-        className="search-container"
+        className="search-bar-wrap"
         style={{
           position: 'fixed',
-          top: '68px',
-          left: '50%',
-          transform: 'translateX(-50%)',
+          top: '64px',
+          right: '16px',
           zIndex: 9999,
-          width: isSearchOpen ? '90%' : '48px',
-          maxWidth: isSearchOpen ? '440px' : '48px',
-          height: '48px'
+          width: isSearchOpen ? 'calc(100vw - 32px)' : 'auto',
+          maxWidth: isSearchOpen ? '500px' : '140px',
+          left: isSearchOpen ? '50%' : 'auto',
+          transform: isSearchOpen ? 'translateX(-50%)' : 'none'
         }}
       >
         {!isSearchOpen ? (
-          /* COLLAPSED: Floating Glass Search Icon Button */
+          /* COLLAPSED: Sleek Frosted Glass Search Pill */
           <button
             type="button"
-            className="jiggle-btn"
+            className="spring-btn glass-pill"
             onClick={() => setIsSearchOpen(true)}
-            aria-label="Open Search"
             style={{
-              width: '48px',
-              height: '48px',
-              borderRadius: '50%',
-              background: 'rgba(24, 24, 27, 0.75)',
-              backdropFilter: 'blur(12px)',
-              border: '1px solid rgba(255, 255, 255, 0.25)',
-              color: '#ffffff',
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'center',
-              boxShadow: '0 8px 24px rgba(0,0,0,0.6)',
-              margin: '0 auto'
+              gap: '8px',
+              padding: '8px 14px',
+              borderRadius: '999px',
+              color: '#ffffff',
+              fontSize: '13px',
+              fontWeight: '600',
+              cursor: 'pointer'
             }}
           >
-            <svg width="20" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="11" cy="11" r="8"></circle>
               <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
             </svg>
+            <span>Search</span>
           </button>
         ) : (
-          /* EXPANDED: Translucent Search Input with Close Button */
-          <div style={{ position: 'relative', display: 'flex', alignItems: 'center', width: '100%', height: '100%' }}>
+          /* EXPANDED: Full Width Glass Search Input */
+          <div className="glass-pill" style={{ display: 'flex', alignItems: 'center', width: '100%', borderRadius: '999px', padding: '4px 6px 4px 16px' }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#eab308" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px', flexShrink: 0 }}>
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
             <input 
               ref={searchInputRef}
               type="text" 
-              placeholder="🔍 Search food (e.g. Pancake, Biryani, Pizza)..." 
+              placeholder="Search dishes (e.g. Pancake, Biryani)..." 
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               style={{
                 width: '100%',
-                height: '48px',
-                padding: '0 44px 0 18px',
-                borderRadius: '999px',
-                border: '1px solid rgba(234, 179, 8, 0.5)',
-                background: 'rgba(18, 18, 20, 0.85)',
-                backdropFilter: 'blur(16px)',
+                height: '38px',
+                background: 'transparent',
+                border: 'none',
                 color: '#ffffff',
                 fontSize: '13px',
                 fontWeight: '500',
-                outline: 'none',
-                boxShadow: '0 12px 32px rgba(0,0,0,0.8)',
-                boxSizing: 'border-box'
+                outline: 'none'
               }}
             />
             <button 
               type="button"
-              className="jiggle-btn"
+              className="spring-btn"
               onClick={() => {
                 setIsSearchOpen(false);
                 setSearchQuery('');
               }}
               style={{
-                position: 'absolute',
-                right: '12px',
                 background: 'rgba(255,255,255,0.15)',
                 border: 'none',
                 color: '#ffffff',
                 width: '28px',
                 height: '28px',
                 borderRadius: '50%',
-                fontSize: '14px',
+                fontSize: '12px',
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontWeight: 'bold'
+                fontWeight: 'bold',
+                flexShrink: 0,
+                marginLeft: '6px'
               }}
             >
               ✕
@@ -222,7 +222,7 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
         )}
       </div>
 
-      {/* REELS FEED LIST */}
+      {/* REELS FEED */}
       <div className="reels-feed" role="list" style={{ width: '100%', margin: 0, padding: 0 }}>
         {filteredItems.length === 0 && (
           <div className="empty-state" style={{ padding: '140px 20px 60px 20px', textAlign: 'center', color: '#a1a1aa' }}>
@@ -231,7 +231,7 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
             </p>
             {searchQuery && (
               <button 
-                className="jiggle-btn"
+                className="spring-btn"
                 onClick={() => setSearchQuery('')}
                 style={{ marginTop: '14px', padding: '10px 20px', background: '#eab308', color: '#000', border: 'none', borderRadius: '999px', fontWeight: '700', cursor: 'pointer' }}
               >
@@ -286,38 +286,36 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
               <div className="reel-overlay" style={{ pointerEvents: 'none' }}>
                 <div className="reel-overlay-gradient" aria-hidden="true" />
                 
-                {/* ACTION BUTTONS (Right Column) */}
+                {/* ACTION COLUMN (Right Side) */}
                 <div className="reel-actions" style={{ pointerEvents: 'auto', zIndex: 999 }}>
                   
-                  {/* Sound Toggle Button */}
+                  {/* Sound Toggle */}
                   <div className="reel-action-group">
                     <button 
                       onClick={(e) => {
                         e.stopPropagation();
                         toggleMute();
                       }} 
-                      className="reel-action sound-btn jiggle-btn" 
+                      className="reel-action sound-btn spring-btn glass-pill" 
                       aria-label={isMuted ? "Unmute" : "Mute"}
                     >
                       {isMuted ? (
-                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                           <line x1="1" y1="1" x2="23" y2="23"></line>
                           <path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"></path>
                           <path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"></path>
-                          <line x1="12" y1="19" x2="12" y2="23"></line>
-                          <line x1="8" y1="23" x2="16" y2="23"></line>
                         </svg>
                       ) : (
-                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                           <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
                           <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
                         </svg>
                       )}
                     </button>
-                    <div className="reel-action__count">{isMuted ? 'Muted' : 'Sound On'}</div>
+                    <div className="reel-action__count" style={{ fontSize: '11px', color: '#d4d4d8' }}>{isMuted ? 'Muted' : 'Sound On'}</div>
                   </div>
 
-                  {/* Order Button */}
+                  {/* Order Button (Primary Yellow Pill) */}
                   <div className="reel-action-group" style={{ pointerEvents: 'auto', zIndex: 1000 }}>
                     <button 
                       type="button"
@@ -326,17 +324,17 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
                         e.stopPropagation();
                         setActiveOrderFood(item);
                       }} 
-                      className="reel-action order-btn jiggle-btn" 
+                      className="reel-action order-btn spring-btn" 
                       aria-label="Order Now"
-                      style={{ backgroundColor: '#eab308', color: '#000', cursor: 'pointer', pointerEvents: 'auto' }}
+                      style={{ backgroundColor: '#eab308', color: '#000', cursor: 'pointer', pointerEvents: 'auto', boxShadow: '0 4px 20px rgba(234, 179, 8, 0.4)' }}
                     >
-                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                         <circle cx="9" cy="21" r="1"></circle>
                         <circle cx="20" cy="21" r="1"></circle>
                         <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
                       </svg>
                     </button>
-                    <div className="reel-action__count" style={{ color: '#eab308', fontWeight: 'bold' }}>Order</div>
+                    <div className="reel-action__count" style={{ color: '#eab308', fontWeight: '800', fontSize: '11px' }}>Order</div>
                   </div>
 
                   {/* Like Button */}
@@ -346,10 +344,10 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
                         e.stopPropagation();
                         if (onLike) onLike(item);
                       }} 
-                      className="reel-action jiggle-btn" 
+                      className="reel-action spring-btn glass-pill" 
                       aria-label="Like"
                     >
-                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 22l7.8-8.6 1-1a5.5 5.5 0 0 0 0-7.8z" />
                       </svg>
                     </button>
@@ -359,14 +357,14 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
                   {/* Bookmark Button */}
                   <div className="reel-action-group">
                     <button 
-                      className="reel-action jiggle-btn" 
+                      className="reel-action spring-btn glass-pill" 
                       onClick={(e) => {
                         e.stopPropagation();
                         if (onSave) onSave(item);
                       }} 
                       aria-label="Bookmark"
                     >
-                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4-7 4V4a1 1 0 0 1 1-1z" />
                       </svg>
                     </button>
@@ -376,14 +374,14 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
                   {/* Comments Button */}
                   <div className="reel-action-group">
                     <button 
-                      className="reel-action jiggle-btn" 
+                      className="reel-action spring-btn glass-pill" 
                       onClick={(e) => {
                         e.stopPropagation();
                         setActiveCommentFoodId(item._id);
                       }} 
                       aria-label="Comments"
                     >
-                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z" />
                       </svg>
                     </button>
@@ -391,7 +389,7 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
                   </div>
                 </div>
 
-                {/* REEL CONTENT DETAILS WITH DISH NAME */}
+                {/* BOTTOM REEL CONTENT DETAILS */}
                 <div className="reel-content" style={{ pointerEvents: 'auto', paddingBottom: '70px' }}>
                   
                   {/* Dish Name */}
@@ -401,7 +399,7 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
                     color: '#ffffff',
                     margin: '0 0 6px 0',
                     textTransform: 'capitalize',
-                    textShadow: '0 2px 8px rgba(0,0,0,0.9)',
+                    textShadow: '0 2px 12px rgba(0,0,0,0.9)',
                     letterSpacing: '-0.01em'
                   }}>
                     {foodDishName}
@@ -414,8 +412,8 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
                   )}
 
                   {partnerId && (
-                    <Link className="visit-store-btn jiggle-btn" to={"/food-partner/" + partnerId} aria-label="Visit store">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <Link className="visit-store-btn spring-btn glass-pill" to={"/food-partner/" + partnerId} aria-label="Visit store">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                         <path d="m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7" />
                         <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
                         <path d="M15 22v-4a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4" />
