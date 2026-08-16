@@ -8,8 +8,9 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
   const videoRefs = useRef(new Map())
   const searchInputRef = useRef(null)
   const lastTapRef = useRef({ time: 0, itemId: null })
-  const likingLockRef = useRef({}) // 🟢 Lock to prevent rapid spam clicking
+  const likingLockRef = useRef({})
   const savingLockRef = useRef({})
+  const initializedRef = useRef(false)
 
   const [isMuted, setIsMuted] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
@@ -18,12 +19,100 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
   const [activeCommentFoodId, setActiveCommentFoodId] = useState(null)
   const [activeOrderFood, setActiveOrderFood] = useState(null)
   
-  // Local state maps for instant feedback
-  const [likedMap, setLikedMap] = useState({})
-  const [savedMap, setSavedMap] = useState({})
+  // State maps for instant feedback - initialize from localStorage
+  const [likedMap, setLikedMap] = useState(() => {
+    const saved = localStorage.getItem('userLikes');
+    return saved ? JSON.parse(saved) : {};
+  });
+  
+  const [savedMap, setSavedMap] = useState(() => {
+    const saved = localStorage.getItem('userSaves');
+    return saved ? JSON.parse(saved) : {};
+  });
+  
   const [likesCountMap, setLikesCountMap] = useState({})
   const [savesCountMap, setSavesCountMap] = useState({})
   const [commentCounts, setCommentCounts] = useState({})
+
+  // Save liked state to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem('userLikes', JSON.stringify(likedMap));
+  }, [likedMap]);
+
+  useEffect(() => {
+    localStorage.setItem('userSaves', JSON.stringify(savedMap));
+  }, [savedMap]);
+
+  // Initialize likes/saves counts from items
+  useEffect(() => {
+    if (items && items.length > 0) {
+      const initialLikes = {};
+      const initialSaves = {};
+      
+      items.forEach(item => {
+        if (!likesCountMap[item._id]) {
+          initialLikes[item._id] = item.likeCount || item.likesCount || item.likes || 0;
+        }
+        if (!savesCountMap[item._id]) {
+          initialSaves[item._id] = item.saveCount || item.savesCount || item.bookmarks || item.saves || 0;
+        }
+      });
+      
+      setLikesCountMap(prev => ({ ...prev, ...initialLikes }));
+      setSavesCountMap(prev => ({ ...prev, ...initialSaves }));
+    }
+  }, [items]);
+
+  // Fetch user's like/save status from backend
+  useEffect(() => {
+    const fetchUserStatus = async () => {
+      const token = localStorage.getItem('token') || localStorage.getItem('userToken');
+      if (!token || !items || items.length === 0) return;
+
+      try {
+        const statusPromises = items.map(item => 
+          axios.get(
+            `${import.meta.env.VITE_API_URL}/api/food/like-status/${item._id}`,
+            { headers: { Authorization: `Bearer ${token}` }, withCredentials: true }
+          ).catch(() => ({ data: { liked: false, saved: false, likeCount: 0, saveCount: 0 } }))
+        );
+
+        const results = await Promise.all(statusPromises);
+        
+        const newLikedMap = {};
+        const newSavedMap = {};
+        
+        results.forEach((result, index) => {
+          if (result.data && result.data.success) {
+            const itemId = items[index]._id;
+            newLikedMap[itemId] = result.data.liked || false;
+            newSavedMap[itemId] = result.data.saved || false;
+            
+            // Update counts from server if available
+            if (result.data.likeCount !== undefined) {
+              setLikesCountMap(prev => ({
+                ...prev,
+                [itemId]: result.data.likeCount
+              }));
+            }
+            if (result.data.saveCount !== undefined) {
+              setSavesCountMap(prev => ({
+                ...prev,
+                [itemId]: result.data.saveCount
+              }));
+            }
+          }
+        });
+        
+        setLikedMap(prev => ({ ...prev, ...newLikedMap }));
+        setSavedMap(prev => ({ ...prev, ...newSavedMap }));
+      } catch (err) {
+        console.error("Failed to fetch like status:", err);
+      }
+    };
+
+    fetchUserStatus();
+  }, [items]);
 
   useEffect(() => {
     if (isSearchOpen && searchInputRef.current) {
@@ -75,7 +164,7 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
     })
   }
 
-  // Helper: Extract token safely from localStorage / user object
+  // Helper: Extract token safely from localStorage
   const getAuthToken = () => {
     let token = localStorage.getItem('token') || localStorage.getItem('userToken');
     const storedUser = localStorage.getItem('user');
@@ -88,7 +177,7 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
     return { token, hasUser: !!storedUser || !!token };
   }
 
-  // 🟢 STRICT 1-USER 1-LIKE TOGGLE WITH SPAM LOCK
+  // STRICT 1-USER 1-LIKE TOGGLE WITH SPAM LOCK
   const handleLikeToggle = async (item) => {
     const foodId = item._id;
 
@@ -106,20 +195,55 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
 
       const isCurrentlyLiked = !!likedMap[foodId];
 
-      // Optimistic UI Update: strictly toggle true/false and +1 / -1
-      setLikedMap(prev => ({ ...prev, [foodId]: !isCurrentlyLiked }));
+      // Check if user is trying to like again when already liked
+      if (isCurrentlyLiked) {
+        // Unliking - proceed
+        // Optimistic UI Update
+        setLikedMap(prev => ({ ...prev, [foodId]: false }));
+        setLikesCountMap(prev => {
+          const baseCount = prev[foodId] ?? (item.likeCount ?? item.likesCount ?? item.likes ?? 0);
+          return {
+            ...prev,
+            [foodId]: Math.max(0, baseCount - 1)
+          };
+        });
+
+        const headers = {};
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
+        const res = await axios.post(
+          `${import.meta.env.VITE_API_URL}/api/food/like`,
+          { foodId },
+          { headers, withCredentials: true }
+        );
+
+        // Sync exact response state from server
+        if (res.data && res.data.success) {
+          setLikedMap(prev => ({ ...prev, [foodId]: res.data.liked || false }));
+          setLikesCountMap(prev => ({ 
+            ...prev, 
+            [foodId]: res.data.likeCount ?? prev[foodId] 
+          }));
+        }
+
+        if (onLike) onLike(item);
+        return;
+      }
+
+      // Not liked yet - Like it
+      // Optimistic UI Update
+      setLikedMap(prev => ({ ...prev, [foodId]: true }));
       setLikesCountMap(prev => {
         const baseCount = prev[foodId] ?? (item.likeCount ?? item.likesCount ?? item.likes ?? 0);
         return {
           ...prev,
-          [foodId]: isCurrentlyLiked ? Math.max(0, baseCount - 1) : baseCount + 1
+          [foodId]: baseCount + 1
         };
       });
 
       const headers = {};
       if (token) headers['Authorization'] = `Bearer ${token}`;
 
-      // Backend API Call
       const res = await axios.post(
         `${import.meta.env.VITE_API_URL}/api/food/like`,
         { foodId },
@@ -127,25 +251,44 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
       );
 
       // Sync exact response state from server
-      if (res.data?.message?.includes("unliked")) {
-        setLikedMap(prev => ({ ...prev, [foodId]: false }));
-      } else if (res.data?.message?.includes("liked")) {
-        setLikedMap(prev => ({ ...prev, [foodId]: true }));
+      if (res.data && res.data.success) {
+        setLikedMap(prev => ({ ...prev, [foodId]: res.data.liked || false }));
+        setLikesCountMap(prev => ({ 
+          ...prev, 
+          [foodId]: res.data.likeCount ?? prev[foodId] 
+        }));
       }
 
       if (onLike) onLike(item);
     } catch (err) {
       console.error("Like toggle failed:", err);
-      // Rollback on error
-      setLikedMap(prev => ({ ...prev, [foodId]: !prev[foodId] }));
+      // Rollback on error - refresh the status
+      const token = localStorage.getItem('token') || localStorage.getItem('userToken');
+      if (token) {
+        try {
+          const statusRes = await axios.get(
+            `${import.meta.env.VITE_API_URL}/api/food/like-status/${foodId}`,
+            { headers: { Authorization: `Bearer ${token}` }, withCredentials: true }
+          );
+          if (statusRes.data && statusRes.data.success) {
+            setLikedMap(prev => ({ ...prev, [foodId]: statusRes.data.liked || false }));
+            setLikesCountMap(prev => ({ ...prev, [foodId]: statusRes.data.likeCount || 0 }));
+          }
+        } catch (e) {
+          // If we can't refresh, revert to previous state
+          setLikedMap(prev => ({ ...prev, [foodId]: !prev[foodId] }));
+        }
+      } else {
+        setLikedMap(prev => ({ ...prev, [foodId]: !prev[foodId] }));
+      }
     } finally {
       setTimeout(() => {
         likingLockRef.current[foodId] = false;
-      }, 400); // 400ms lock cooldown
+      }, 400);
     }
   }
 
-  // 🟢 STRICT 1-USER 1-SAVE TOGGLE WITH SPAM LOCK
+  // STRICT 1-USER 1-SAVE TOGGLE WITH SPAM LOCK
   const handleSaveToggle = async (item) => {
     const foodId = item._id;
 
@@ -162,27 +305,69 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
 
       const isCurrentlySaved = !!savedMap[foodId];
 
-      setSavedMap(prev => ({ ...prev, [foodId]: !isCurrentlySaved }));
+      if (isCurrentlySaved) {
+        // Unsave
+        setSavedMap(prev => ({ ...prev, [foodId]: false }));
+        setSavesCountMap(prev => {
+          const baseCount = prev[foodId] ?? (item.saveCount ?? item.savesCount ?? item.bookmarks ?? item.saves ?? 0);
+          return {
+            ...prev,
+            [foodId]: Math.max(0, baseCount - 1)
+          };
+        });
+
+        const headers = {};
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
+        const res = await axios.post(
+          `${import.meta.env.VITE_API_URL}/api/food/save`,
+          { foodId },
+          { headers, withCredentials: true }
+        );
+
+        if (res.data && res.data.success) {
+          setSavedMap(prev => ({ ...prev, [foodId]: res.data.saved || false }));
+          setSavesCountMap(prev => ({ 
+            ...prev, 
+            [foodId]: res.data.saveCount ?? prev[foodId] 
+          }));
+        }
+
+        if (onSave) onSave(item);
+        return;
+      }
+
+      // Save
+      setSavedMap(prev => ({ ...prev, [foodId]: true }));
       setSavesCountMap(prev => {
         const baseCount = prev[foodId] ?? (item.saveCount ?? item.savesCount ?? item.bookmarks ?? item.saves ?? 0);
         return {
           ...prev,
-          [foodId]: isCurrentlySaved ? Math.max(0, baseCount - 1) : baseCount + 1
+          [foodId]: baseCount + 1
         };
       });
 
       const headers = {};
       if (token) headers['Authorization'] = `Bearer ${token}`;
 
-      await axios.post(
+      const res = await axios.post(
         `${import.meta.env.VITE_API_URL}/api/food/save`,
         { foodId },
         { headers, withCredentials: true }
       );
 
+      if (res.data && res.data.success) {
+        setSavedMap(prev => ({ ...prev, [foodId]: res.data.saved || false }));
+        setSavesCountMap(prev => ({ 
+          ...prev, 
+          [foodId]: res.data.saveCount ?? prev[foodId] 
+        }));
+      }
+
       if (onSave) onSave(item);
     } catch (err) {
       console.error("Save toggle failed:", err);
+      // Rollback on error
       setSavedMap(prev => ({ ...prev, [foodId]: !prev[foodId] }));
     } finally {
       setTimeout(() => {
