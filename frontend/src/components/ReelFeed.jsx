@@ -11,8 +11,7 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
   const [isMuted, setIsMuted] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [isSearchOpen, setIsSearchOpen] = useState(false)
-  const [selectedCategory, setSelectedCategory] = useState('All') // 🟢 State for Category Filters
-  const [heartAnim, setHeartAnim] = useState(null) // 🟢 State for Double-Tap Heart Pop
+  const [heartAnim, setHeartAnim] = useState(null)
   const [activeCommentFoodId, setActiveCommentFoodId] = useState(null)
   const [activeOrderFood, setActiveOrderFood] = useState(null)
   const [commentCounts, setCommentCounts] = useState({})
@@ -23,15 +22,8 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
     }
   }, [isSearchOpen])
 
-  // 🟢 FILTER BY CATEGORY & SEARCH QUERY
+  // Filter items based on search query
   const filteredItems = items.filter((item) => {
-    // 1. Category Filter
-    if (selectedCategory !== 'All') {
-      const itemCat = (item?.category || 'Veg').toLowerCase();
-      if (itemCat !== selectedCategory.toLowerCase()) return false;
-    }
-
-    // 2. Search Query Filter
     if (!searchQuery.trim()) return true;
     const foodName = (item?.name || item?.title || item?.foodName || '').toLowerCase();
     const description = (item?.description || '').toLowerCase();
@@ -75,13 +67,12 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
     })
   }
 
-  // 🟢 DOUBLE TAP TO LIKE HANDLER
+  // Double tap to like handler
   const handleVideoClick = (e, item) => {
     const now = Date.now();
-    const DOUBLE_TAP_DELAY = 300; // ms
+    const DOUBLE_TAP_DELAY = 300;
 
     if (lastTapRef.current.itemId === item._id && (now - lastTapRef.current.time) < DOUBLE_TAP_DELAY) {
-      // Double tap detected!
       const rect = e.currentTarget.getBoundingClientRect();
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
@@ -92,7 +83,6 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
       if (onLike) onLike(item);
       lastTapRef.current = { time: 0, itemId: null };
     } else {
-      // Single tap -> toggle mute
       lastTapRef.current = { time: now, itemId: item._id };
       toggleMute();
     }
@@ -117,7 +107,7 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
   return (
     <div className="reels-page" style={{ width: '100vw', minHeight: '100vh', margin: 0, padding: 0, backgroundColor: '#000000', overflowX: 'hidden', position: 'relative' }}>
       
-      {/* 🟢 2026 UI/UX ANIMATIONS & GLASS STYLES */}
+      {/* 2026 UI/UX ANIMATIONS & GLASS STYLES */}
       <style>{`
         html, body, #root {
           margin: 0 !important;
@@ -164,161 +154,94 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
           border: 1px solid rgba(255, 255, 255, 0.15) !important;
           box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4) !important;
         }
-
-        /* Hide scrollbars for Category Chips */
-        .category-scroll::-webkit-scrollbar {
-          display: none;
-        }
-        .category-scroll {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
-        }
       `}</style>
 
-      {/* 🟢 TOP HEADER AREA: SEARCH PILL + CATEGORY CHIPS */}
-      <div style={{
-        position: 'fixed',
-        top: '64px',
-        left: 0,
-        right: 0,
-        zIndex: 9999,
-        padding: '0 16px',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        gap: '8px',
-        pointerEvents: 'none'
-      }}>
-        
-        {/* 1. SEARCH PILL / BAR */}
-        <div 
-          style={{
-            pointerEvents: 'auto',
-            width: isSearchOpen ? '100%' : 'auto',
-            maxWidth: isSearchOpen ? '500px' : '140px',
-            transition: 'all 0.35s cubic-bezier(0.16, 1, 0.3, 1)'
-          }}
-        >
-          {!isSearchOpen ? (
-            <button
-              type="button"
-              className="spring-btn glass-pill"
-              onClick={() => setIsSearchOpen(true)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '8px 14px',
-                borderRadius: '999px',
-                color: '#ffffff',
-                fontSize: '13px',
-                fontWeight: '600',
-                cursor: 'pointer'
-              }}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="11" cy="11" r="8"></circle>
-                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-              </svg>
-              <span>Search</span>
-            </button>
-          ) : (
-            <div className="glass-pill" style={{ display: 'flex', alignItems: 'center', width: '100%', borderRadius: '999px', padding: '4px 6px 4px 16px' }}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#eab308" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px', flexShrink: 0 }}>
-                <circle cx="11" cy="11" r="8"></circle>
-                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-              </svg>
-              <input 
-                ref={searchInputRef}
-                type="text" 
-                placeholder="Search dishes (e.g. Pancake, Biryani)..." 
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                style={{
-                  width: '100%',
-                  height: '38px',
-                  background: 'transparent',
-                  border: 'none',
-                  color: '#ffffff',
-                  fontSize: '13px',
-                  fontWeight: '500',
-                  outline: 'none'
-                }}
-              />
-              <button 
-                type="button"
-                className="spring-btn"
-                onClick={() => {
-                  setIsSearchOpen(false);
-                  setSearchQuery('');
-                }}
-                style={{
-                  background: 'rgba(255,255,255,0.15)',
-                  border: 'none',
-                  color: '#ffffff',
-                  width: '28px',
-                  height: '28px',
-                  borderRadius: '50%',
-                  fontSize: '12px',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontWeight: 'bold',
-                  flexShrink: 0,
-                  marginLeft: '6px'
-                }}
-              >
-                ✕
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* 🟢 2. QUICK CATEGORY FILTER CHIPS */}
-        {!isSearchOpen && (
-          <div 
-            className="category-scroll"
+      {/* 🟢 FLOATING SEARCH PILL / BAR ONLY */}
+      <div 
+        style={{
+          position: 'fixed',
+          top: '64px',
+          right: '16px',
+          zIndex: 9999,
+          width: isSearchOpen ? 'calc(100vw - 32px)' : 'auto',
+          maxWidth: isSearchOpen ? '500px' : '140px',
+          left: isSearchOpen ? '50%' : 'auto',
+          transform: isSearchOpen ? 'translateX(-50%)' : 'none',
+          transition: 'all 0.35s cubic-bezier(0.16, 1, 0.3, 1)'
+        }}
+      >
+        {!isSearchOpen ? (
+          <button
+            type="button"
+            className="spring-btn glass-pill"
+            onClick={() => setIsSearchOpen(true)}
             style={{
-              pointerEvents: 'auto',
               display: 'flex',
+              alignItems: 'center',
               gap: '8px',
-              overflowX: 'auto',
-              maxWidth: '100vw',
-              padding: '2px 10px',
-              WebkitOverflowScrolling: 'touch'
+              padding: '8px 14px',
+              borderRadius: '999px',
+              color: '#ffffff',
+              fontSize: '13px',
+              fontWeight: '600',
+              cursor: 'pointer'
             }}
           >
-            {[
-              { id: 'All', label: 'All' },
-              { id: 'Veg', label: '🟢 Veg' },
-              { id: 'Non-Veg', label: '🔴 Non-Veg' },
-              { id: 'Vegan', label: '🌱 Vegan' },
-              { id: 'Beverage', label: '🥤 Beverage' }
-            ].map((cat) => {
-              const isActive = selectedCategory.toLowerCase() === cat.id.toLowerCase();
-              return (
-                <button
-                  key={cat.id}
-                  type="button"
-                  className="spring-btn glass-pill"
-                  onClick={() => setSelectedCategory(cat.id)}
-                  style={{
-                    padding: '6px 14px',
-                    borderRadius: '999px',
-                    fontSize: '12px',
-                    fontWeight: '700',
-                    cursor: 'pointer',
-                    whiteSpace: 'nowrap',
-                    background: isActive ? '#eab308' : 'rgba(18, 18, 20, 0.65)',
-                    color: isActive ? '#000000' : '#ffffff',
-                    border: isActive ? '1px solid #eab308' : '1px solid rgba(255, 255, 255, 0.15)'
-                  }}
-                >
-                  {cat.label}
-                </button>
-              );
-            })}
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <span>Search</span>
+          </button>
+        ) : (
+          <div className="glass-pill" style={{ display: 'flex', alignItems: 'center', width: '100%', borderRadius: '999px', padding: '4px 6px 4px 16px' }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#eab308" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px', flexShrink: 0 }}>
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input 
+              ref={searchInputRef}
+              type="text" 
+              placeholder="Search dishes (e.g. Pancake, Biryani)..." 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={{
+                width: '100%',
+                height: '38px',
+                background: 'transparent',
+                border: 'none',
+                color: '#ffffff',
+                fontSize: '13px',
+                fontWeight: '500',
+                outline: 'none'
+              }}
+            />
+            <button 
+              type="button"
+              className="spring-btn"
+              onClick={() => {
+                setIsSearchOpen(false);
+                setSearchQuery('');
+              }}
+              style={{
+                background: 'rgba(255,255,255,0.15)',
+                border: 'none',
+                color: '#ffffff',
+                width: '28px',
+                height: '28px',
+                borderRadius: '50%',
+                fontSize: '12px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontWeight: 'bold',
+                flexShrink: 0,
+                marginLeft: '6px'
+              }}
+            >
+              ✕
+            </button>
           </div>
         )}
       </div>
@@ -326,20 +249,19 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
       {/* REELS FEED */}
       <div className="reels-feed" role="list" style={{ width: '100%', margin: 0, padding: 0 }}>
         {filteredItems.length === 0 && (
-          <div className="empty-state" style={{ padding: '160px 20px 60px 20px', textAlign: 'center', color: '#a1a1aa' }}>
+          <div className="empty-state" style={{ padding: '140px 20px 60px 20px', textAlign: 'center', color: '#a1a1aa' }}>
             <p style={{ fontSize: '18px', fontWeight: '600' }}>
-              {searchQuery ? `No dishes found matching "${searchQuery}"` : `No ${selectedCategory} dishes available right now.`}
+              {searchQuery ? `No dishes found matching "${searchQuery}"` : emptyMessage}
             </p>
-            <button 
-              className="spring-btn"
-              onClick={() => {
-                setSearchQuery('');
-                setSelectedCategory('All');
-              }}
-              style={{ marginTop: '14px', padding: '10px 20px', background: '#eab308', color: '#000', border: 'none', borderRadius: '999px', fontWeight: '700', cursor: 'pointer' }}
-            >
-              Reset Filters
-            </button>
+            {searchQuery && (
+              <button 
+                className="spring-btn"
+                onClick={() => setSearchQuery('')}
+                style={{ marginTop: '14px', padding: '10px 20px', background: '#eab308', color: '#000', border: 'none', borderRadius: '999px', fontWeight: '700', cursor: 'pointer' }}
+              >
+                Clear Search
+              </button>
+            )}
           </div>
         )}
 
@@ -389,7 +311,7 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
                 }}
               />
 
-              {/* 🟢 DOUBLE-TAP HEART POP-UP ANIMATION */}
+              {/* DOUBLE-TAP HEART POP-UP ANIMATION */}
               {heartAnim && heartAnim.id === item._id && (
                 <div style={{
                   position: 'absolute',
@@ -514,7 +436,7 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
                 {/* BOTTOM REEL CONTENT DETAILS */}
                 <div className="reel-content" style={{ pointerEvents: 'auto', paddingBottom: '70px' }}>
                   
-                  {/* 🟢 RESTAURANT BRAND BADGE */}
+                  {/* RESTAURANT BRAND BADGE */}
                   <span style={{
                     fontSize: '11px',
                     color: '#eab308',
@@ -528,7 +450,7 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
                     {restaurantName}
                   </span>
 
-                  {/* 🟢 DISH NAME + GLOWING PRICE BADGE */}
+                  {/* DISH NAME + GLOWING PRICE BADGE */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px', flexWrap: 'wrap' }}>
                     <h2 style={{
                       fontSize: '22px',
