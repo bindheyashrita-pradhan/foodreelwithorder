@@ -8,6 +8,8 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
   const videoRefs = useRef(new Map())
   const searchInputRef = useRef(null)
   const lastTapRef = useRef({ time: 0, itemId: null })
+  const likingLockRef = useRef({}) // 🟢 Lock to prevent rapid spam clicking
+  const savingLockRef = useRef({})
 
   const [isMuted, setIsMuted] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
@@ -16,7 +18,7 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
   const [activeCommentFoodId, setActiveCommentFoodId] = useState(null)
   const [activeOrderFood, setActiveOrderFood] = useState(null)
   
-  // Local state maps for instant feedback synced with DB
+  // Local state maps for instant feedback
   const [likedMap, setLikedMap] = useState({})
   const [savedMap, setSavedMap] = useState({})
   const [likesCountMap, setLikesCountMap] = useState({})
@@ -73,7 +75,7 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
     })
   }
 
-  // 🟢 HELPER: Extract token safely from localStorage / user object
+  // Helper: Extract token safely from localStorage / user object
   const getAuthToken = () => {
     let token = localStorage.getItem('token') || localStorage.getItem('userToken');
     const storedUser = localStorage.getItem('user');
@@ -86,97 +88,106 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
     return { token, hasUser: !!storedUser || !!token };
   }
 
-  // 🟢 REAL BACKEND-SYNCED LIKE/UNLIKE TOGGLE
+  // 🟢 STRICT 1-USER 1-LIKE TOGGLE WITH SPAM LOCK
   const handleLikeToggle = async (item) => {
-    try {
-      const { token, hasUser } = getAuthToken();
+    const foodId = item._id;
 
+    // Prevent rapid double execution
+    if (likingLockRef.current[foodId]) return;
+
+    try {
+      likingLockRef.current[foodId] = true;
+
+      const { token, hasUser } = getAuthToken();
       if (!hasUser) {
         alert("Please log in as a user to like dishes!");
         return;
       }
 
-      const isCurrentlyLiked = !!likedMap[item._id];
-      const baseCount = likesCountMap[item._id] ?? (item.likeCount ?? item.likesCount ?? item.likes ?? 0);
+      const isCurrentlyLiked = !!likedMap[foodId];
 
-      // Instant Optimistic UI Update
-      setLikedMap(prev => ({ ...prev, [item._id]: !isCurrentlyLiked }));
-      setLikesCountMap(prev => ({
-        ...prev,
-        [item._id]: isCurrentlyLiked ? Math.max(0, baseCount - 1) : baseCount + 1
-      }));
+      // Optimistic UI Update: strictly toggle true/false and +1 / -1
+      setLikedMap(prev => ({ ...prev, [foodId]: !isCurrentlyLiked }));
+      setLikesCountMap(prev => {
+        const baseCount = prev[foodId] ?? (item.likeCount ?? item.likesCount ?? item.likes ?? 0);
+        return {
+          ...prev,
+          [foodId]: isCurrentlyLiked ? Math.max(0, baseCount - 1) : baseCount + 1
+        };
+      });
 
       const headers = {};
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
+      if (token) headers['Authorization'] = `Bearer ${token}`;
 
-      // Call Backend API
+      // Backend API Call
       const res = await axios.post(
         `${import.meta.env.VITE_API_URL}/api/food/like`,
-        { foodId: item._id },
-        {
-          headers,
-          withCredentials: true
-        }
+        { foodId },
+        { headers, withCredentials: true }
       );
 
-      if (res.data?.message === "Food unliked successfully") {
-        setLikedMap(prev => ({ ...prev, [item._id]: false }));
-      } else if (res.data?.message === "Food liked successfully") {
-        setLikedMap(prev => ({ ...prev, [item._id]: true }));
+      // Sync exact response state from server
+      if (res.data?.message?.includes("unliked")) {
+        setLikedMap(prev => ({ ...prev, [foodId]: false }));
+      } else if (res.data?.message?.includes("liked")) {
+        setLikedMap(prev => ({ ...prev, [foodId]: true }));
       }
 
       if (onLike) onLike(item);
     } catch (err) {
       console.error("Like toggle failed:", err);
-      if (err.response?.status === 401) {
-        alert("Please log in as a user to like dishes!");
-      }
+      // Rollback on error
+      setLikedMap(prev => ({ ...prev, [foodId]: !prev[foodId] }));
+    } finally {
+      setTimeout(() => {
+        likingLockRef.current[foodId] = false;
+      }, 400); // 400ms lock cooldown
     }
   }
 
-  // 🟢 REAL BACKEND-SYNCED SAVE/UNSAVE TOGGLE
+  // 🟢 STRICT 1-USER 1-SAVE TOGGLE WITH SPAM LOCK
   const handleSaveToggle = async (item) => {
-    try {
-      const { token, hasUser } = getAuthToken();
+    const foodId = item._id;
 
+    if (savingLockRef.current[foodId]) return;
+
+    try {
+      savingLockRef.current[foodId] = true;
+
+      const { token, hasUser } = getAuthToken();
       if (!hasUser) {
         alert("Please log in to save dishes!");
         return;
       }
 
-      const isCurrentlySaved = !!savedMap[item._id];
-      const baseCount = savesCountMap[item._id] ?? (item.saveCount ?? item.savesCount ?? item.bookmarks ?? item.saves ?? 0);
+      const isCurrentlySaved = !!savedMap[foodId];
 
-      // Instant Optimistic UI Update
-      setSavedMap(prev => ({ ...prev, [item._id]: !isCurrentlySaved }));
-      setSavesCountMap(prev => ({
-        ...prev,
-        [item._id]: isCurrentlySaved ? Math.max(0, baseCount - 1) : baseCount + 1
-      }));
+      setSavedMap(prev => ({ ...prev, [foodId]: !isCurrentlySaved }));
+      setSavesCountMap(prev => {
+        const baseCount = prev[foodId] ?? (item.saveCount ?? item.savesCount ?? item.bookmarks ?? item.saves ?? 0);
+        return {
+          ...prev,
+          [foodId]: isCurrentlySaved ? Math.max(0, baseCount - 1) : baseCount + 1
+        };
+      });
 
       const headers = {};
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
+      if (token) headers['Authorization'] = `Bearer ${token}`;
 
-      // Call Backend API
-      const res = await axios.post(
+      await axios.post(
         `${import.meta.env.VITE_API_URL}/api/food/save`,
-        { foodId: item._id },
-        {
-          headers,
-          withCredentials: true
-        }
+        { foodId },
+        { headers, withCredentials: true }
       );
 
       if (onSave) onSave(item);
     } catch (err) {
       console.error("Save toggle failed:", err);
-      if (err.response?.status === 401) {
-        alert("Please log in to save dishes!");
-      }
+      setSavedMap(prev => ({ ...prev, [foodId]: !prev[foodId] }));
+    } finally {
+      setTimeout(() => {
+        savingLockRef.current[foodId] = false;
+      }, 400);
     }
   }
 
@@ -193,6 +204,7 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
       setHeartAnim({ id: item._id, x, y });
       setTimeout(() => setHeartAnim(null), 800);
 
+      // Only toggle like if not liked yet on double tap
       if (!likedMap[item._id]) {
         handleLikeToggle(item);
       }
@@ -222,7 +234,7 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
   return (
     <div className="reels-page" style={{ width: '100vw', minHeight: '100vh', margin: 0, padding: 0, backgroundColor: '#000000', overflowX: 'hidden', position: 'relative' }}>
       
-      {/* CSS FIX FOR EQUAL BUTTON SPACING */}
+      {/* STYLES */}
       <style>{`
         html, body, #root {
           margin: 0 !important;
@@ -270,7 +282,6 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
           box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5) !important;
         }
 
-        /* BALANCED RIGHT MARGIN FOR ACTION BUTTONS */
         .reel-actions {
           position: absolute !important;
           right: 28px !important;
@@ -489,7 +500,7 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
               <div className="reel-overlay" style={{ pointerEvents: 'none' }}>
                 <div className="reel-overlay-gradient" aria-hidden="true" />
                 
-                {/* ACTION COLUMN (Right Side) */}
+                {/* ACTION COLUMN */}
                 <div className="reel-actions" style={{ pointerEvents: 'auto', zIndex: 999 }}>
                   
                   {/* Sound Toggle */}
@@ -540,7 +551,7 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
                     <div className="reel-action__count" style={{ color: '#eab308' }}>Order</div>
                   </div>
 
-                  {/* LIKE BUTTON (Pink/Red Heart) */}
+                  {/* LIKE BUTTON */}
                   <div className="reel-action-group">
                     <button 
                       onClick={(e) => {
@@ -572,7 +583,7 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
                     </div>
                   </div>
 
-                  {/* BOOKMARK BUTTON (Gold/Yellow Bookmark) */}
+                  {/* BOOKMARK BUTTON */}
                   <div className="reel-action-group">
                     <button 
                       className="reel-action spring-btn glass-pill" 
