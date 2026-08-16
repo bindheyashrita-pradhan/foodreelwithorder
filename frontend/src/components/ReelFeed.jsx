@@ -14,6 +14,12 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
   const [heartAnim, setHeartAnim] = useState(null)
   const [activeCommentFoodId, setActiveCommentFoodId] = useState(null)
   const [activeOrderFood, setActiveOrderFood] = useState(null)
+  
+  // 🟢 LOCAL STATES FOR INSTANT LIKED/SAVED COLOR VISUAL FEEDBACK
+  const [likedMap, setLikedMap] = useState({})
+  const [savedMap, setSavedMap] = useState({})
+  const [likesCountMap, setLikesCountMap] = useState({})
+  const [savesCountMap, setSavesCountMap] = useState({})
   const [commentCounts, setCommentCounts] = useState({})
 
   useEffect(() => {
@@ -22,7 +28,6 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
     }
   }, [isSearchOpen])
 
-  // Filter items based on search query
   const filteredItems = items.filter((item) => {
     if (!searchQuery.trim()) return true;
     const foodName = (item?.name || item?.title || item?.foodName || '').toLowerCase();
@@ -67,6 +72,28 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
     })
   }
 
+  // 🟢 TOGGLE LIKE HANDLER (Instant Pink Heart + Count update)
+  const toggleLike = (item) => {
+    const isLiked = !!likedMap[item._id];
+    const currentCount = likesCountMap[item._id] ?? (item.likeCount ?? item.likesCount ?? item.likes ?? 0);
+    
+    setLikedMap(prev => ({ ...prev, [item._id]: !isLiked }));
+    setLikesCountMap(prev => ({ ...prev, [item._id]: isLiked ? Math.max(0, currentCount - 1) : currentCount + 1 }));
+
+    if (onLike) onLike(item);
+  }
+
+  // 🟢 TOGGLE SAVE HANDLER (Instant Gold Bookmark + Count update)
+  const toggleSave = (item) => {
+    const isSaved = !!savedMap[item._id];
+    const currentCount = savesCountMap[item._id] ?? (item.saveCount ?? item.savesCount ?? item.bookmarks ?? item.saves ?? 0);
+    
+    setSavedMap(prev => ({ ...prev, [item._id]: !isSaved }));
+    setSavesCountMap(prev => ({ ...prev, [item._id]: isSaved ? Math.max(0, currentCount - 1) : currentCount + 1 }));
+
+    if (onSave) onSave(item);
+  }
+
   // Double tap to like handler
   const handleVideoClick = (e, item) => {
     const now = Date.now();
@@ -80,7 +107,9 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
       setHeartAnim({ id: item._id, x, y });
       setTimeout(() => setHeartAnim(null), 800);
 
-      if (onLike) onLike(item);
+      if (!likedMap[item._id]) {
+        toggleLike(item);
+      }
       lastTapRef.current = { time: 0, itemId: null };
     } else {
       lastTapRef.current = { time: now, itemId: item._id };
@@ -107,7 +136,7 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
   return (
     <div className="reels-page" style={{ width: '100vw', minHeight: '100vh', margin: 0, padding: 0, backgroundColor: '#000000', overflowX: 'hidden', position: 'relative' }}>
       
-      {/* 2026 UI/UX ANIMATIONS & GLASS STYLES */}
+      {/* 🟢 FIXED BUTTON POSITIONING & PINK/GOLD FILLED STYLES */}
       <style>{`
         html, body, #root {
           margin: 0 !important;
@@ -120,9 +149,9 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
 
         @keyframes springPop {
           0% { transform: scale(1); }
-          30% { transform: scale(1.18) rotate(-4deg); }
-          50% { transform: scale(0.94) rotate(3deg); }
-          75% { transform: scale(1.05) rotate(-1deg); }
+          30% { transform: scale(1.22) rotate(-5deg); }
+          50% { transform: scale(0.92) rotate(3deg); }
+          75% { transform: scale(1.08) rotate(-1deg); }
           100% { transform: scale(1) rotate(0deg); }
         }
 
@@ -133,14 +162,14 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
         }
 
         .spring-btn {
-          transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.2s ease, box-shadow 0.2s ease;
+          transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.2s ease, border-color 0.2s ease;
           cursor: pointer;
           user-select: none;
           -webkit-tap-highlight-color: transparent;
         }
 
         .spring-btn:hover {
-          transform: scale(1.06);
+          transform: scale(1.08);
         }
 
         .spring-btn:active {
@@ -151,12 +180,46 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
           background: rgba(18, 18, 20, 0.65) !important;
           backdrop-filter: blur(20px) saturate(180%) !important;
           -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
-          border: 1px solid rgba(255, 255, 255, 0.15) !important;
-          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4) !important;
+          border: 1px solid rgba(255, 255, 255, 0.18) !important;
+          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5) !important;
+        }
+
+        /* 🟢 PERFECTLY POSITIONED ACTION BUTTONS COLUMN */
+        .reel-actions {
+          position: absolute !important;
+          right: 16px !important;
+          bottom: 96px !important; /* Positions buttons nicely above bottom bar */
+          display: flex !important;
+          flex-direction: column !important;
+          align-items: center !important;
+          gap: 16px !important;
+          z-index: 999 !important;
+        }
+
+        .reel-action-group {
+          display: flex !important;
+          flex-direction: column !important;
+          align-items: center !important;
+          gap: 4px !important;
+        }
+
+        .reel-action {
+          width: 44px !important;
+          height: 44px !important;
+          border-radius: 50% !important;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+        }
+
+        .reel-action__count {
+          font-size: 11px !important;
+          font-weight: 700 !important;
+          text-shadow: 0 2px 4px rgba(0,0,0,0.8);
         }
       `}</style>
 
-      {/* 🟢 FLOATING SEARCH PILL / BAR ONLY */}
+      {/* FLOATING SEARCH PILL */}
       <div 
         style={{
           position: 'fixed',
@@ -274,6 +337,13 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
           const foodDishName = item?.name || item?.title || item?.foodName || 'Dish Item';
           const price = item?.price || item?.basePrice || item?.portions?.medium || item?.portions?.small || 0;
 
+          // 🟢 LIKED AND SAVED COMPUTED STATES
+          const isLiked = !!likedMap[item._id];
+          const displayLikes = likesCountMap[item._id] ?? (item.likeCount ?? item.likesCount ?? item.likes ?? 0);
+
+          const isSaved = !!savedMap[item._id];
+          const displaySaves = savesCountMap[item._id] ?? (item.saveCount ?? item.savesCount ?? item.bookmarks ?? item.saves ?? 0);
+
           const baseCommentCount = item.commentsCount ?? (Array.isArray(item.comments) ? item.comments.length : 0);
           const currentCommentCount = baseCommentCount + (commentCounts[item._id] || 0);
 
@@ -330,7 +400,7 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
               <div className="reel-overlay" style={{ pointerEvents: 'none' }}>
                 <div className="reel-overlay-gradient" aria-hidden="true" />
                 
-                {/* ACTION COLUMN (Right Side) */}
+                {/* 🟢 ALIGNED RIGHT ACTION BUTTONS COLUMN */}
                 <div className="reel-actions" style={{ pointerEvents: 'auto', zIndex: 999 }}>
                   
                   {/* Sound Toggle */}
@@ -356,7 +426,7 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
                         </svg>
                       )}
                     </button>
-                    <div className="reel-action__count" style={{ fontSize: '11px', color: '#d4d4d8' }}>{isMuted ? 'Muted' : 'Sound On'}</div>
+                    <div className="reel-action__count" style={{ color: '#d4d4d8' }}>{isMuted ? 'Muted' : 'Sound On'}</div>
                   </div>
 
                   {/* Order Button (Primary Yellow Pill) */}
@@ -378,41 +448,71 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
                         <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
                       </svg>
                     </button>
-                    <div className="reel-action__count" style={{ color: '#eab308', fontWeight: '800', fontSize: '11px' }}>Order</div>
+                    <div className="reel-action__count" style={{ color: '#eab308' }}>Order</div>
                   </div>
 
-                  {/* Like Button */}
+                  {/* 🟢 LIKE BUTTON (Pink/Red Filled on Active) */}
                   <div className="reel-action-group">
                     <button 
                       onClick={(e) => {
                         e.stopPropagation();
-                        if (onLike) onLike(item);
+                        toggleLike(item);
                       }} 
                       className="reel-action spring-btn glass-pill" 
                       aria-label="Like"
+                      style={{
+                        backgroundColor: isLiked ? 'rgba(239, 68, 68, 0.25)' : undefined,
+                        borderColor: isLiked ? 'rgba(239, 68, 68, 0.6)' : undefined
+                      }}
                     >
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <svg 
+                        width="20" 
+                        height="20" 
+                        viewBox="0 0 24 24" 
+                        fill={isLiked ? "#ef4444" : "none"} 
+                        stroke={isLiked ? "#ef4444" : "currentColor"} 
+                        strokeWidth="2" 
+                        strokeLinecap="round" 
+                        strokeLinejoin="round"
+                      >
                         <path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 22l7.8-8.6 1-1a5.5 5.5 0 0 0 0-7.8z" />
                       </svg>
                     </button>
-                    <div className="reel-action__count">{item.likeCount ?? item.likesCount ?? item.likes ?? 0}</div>
+                    <div className="reel-action__count" style={{ color: isLiked ? '#ef4444' : '#ffffff' }}>
+                      {displayLikes}
+                    </div>
                   </div>
 
-                  {/* Bookmark Button */}
+                  {/* 🟢 BOOKMARK BUTTON (Gold/Yellow Filled on Active) */}
                   <div className="reel-action-group">
                     <button 
                       className="reel-action spring-btn glass-pill" 
                       onClick={(e) => {
                         e.stopPropagation();
-                        if (onSave) onSave(item);
+                        toggleSave(item);
                       }} 
                       aria-label="Bookmark"
+                      style={{
+                        backgroundColor: isSaved ? 'rgba(234, 179, 8, 0.25)' : undefined,
+                        borderColor: isSaved ? 'rgba(234, 179, 8, 0.6)' : undefined
+                      }}
                     >
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <svg 
+                        width="20" 
+                        height="20" 
+                        viewBox="0 0 24 24" 
+                        fill={isSaved ? "#eab308" : "none"} 
+                        stroke={isSaved ? "#eab308" : "currentColor"} 
+                        strokeWidth="2" 
+                        strokeLinecap="round" 
+                        strokeLinejoin="round"
+                      >
                         <path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4-7 4V4a1 1 0 0 1 1-1z" />
                       </svg>
                     </button>
-                    <div className="reel-action__count">{item.saveCount ?? item.savesCount ?? item.bookmarks ?? item.saves ?? 0}</div>
+                    <div className="reel-action__count" style={{ color: isSaved ? '#eab308' : '#ffffff' }}>
+                      {displaySaves}
+                    </div>
                   </div>
 
                   {/* Comments Button */}
@@ -429,7 +529,9 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
                         <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z" />
                       </svg>
                     </button>
-                    <div className="reel-action__count">{currentCommentCount}</div>
+                    <div className="reel-action__count" style={{ color: '#ffffff' }}>
+                      {currentCommentCount}
+                    </div>
                   </div>
                 </div>
 
