@@ -73,11 +73,25 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
     })
   }
 
+  // 🟢 HELPER: Extract token safely from localStorage / user object
+  const getAuthToken = () => {
+    let token = localStorage.getItem('token') || localStorage.getItem('userToken');
+    const storedUser = localStorage.getItem('user');
+    if (!token && storedUser) {
+      try {
+        const parsed = JSON.parse(storedUser);
+        token = parsed.token || parsed.userToken;
+      } catch (e) {}
+    }
+    return { token, hasUser: !!storedUser || !!token };
+  }
+
   // 🟢 REAL BACKEND-SYNCED LIKE/UNLIKE TOGGLE
   const handleLikeToggle = async (item) => {
     try {
-      const token = localStorage.getItem('token') || localStorage.getItem('userToken');
-      if (!token) {
+      const { token, hasUser } = getAuthToken();
+
+      if (!hasUser) {
         alert("Please log in as a user to like dishes!");
         return;
       }
@@ -92,12 +106,17 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
         [item._id]: isCurrentlyLiked ? Math.max(0, baseCount - 1) : baseCount + 1
       }));
 
+      const headers = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
       // Call Backend API
       const res = await axios.post(
         `${import.meta.env.VITE_API_URL}/api/food/like`,
         { foodId: item._id },
         {
-          headers: { Authorization: `Bearer ${token}` },
+          headers,
           withCredentials: true
         }
       );
@@ -111,16 +130,18 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
       if (onLike) onLike(item);
     } catch (err) {
       console.error("Like toggle failed:", err);
-      // Rollback on error
-      setLikedMap(prev => ({ ...prev, [item._id]: !prev[item._id] }));
+      if (err.response?.status === 401) {
+        alert("Please log in as a user to like dishes!");
+      }
     }
   }
 
   // 🟢 REAL BACKEND-SYNCED SAVE/UNSAVE TOGGLE
   const handleSaveToggle = async (item) => {
     try {
-      const token = localStorage.getItem('token') || localStorage.getItem('userToken');
-      if (!token) {
+      const { token, hasUser } = getAuthToken();
+
+      if (!hasUser) {
         alert("Please log in to save dishes!");
         return;
       }
@@ -135,12 +156,17 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
         [item._id]: isCurrentlySaved ? Math.max(0, baseCount - 1) : baseCount + 1
       }));
 
+      const headers = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
       // Call Backend API
       const res = await axios.post(
         `${import.meta.env.VITE_API_URL}/api/food/save`,
         { foodId: item._id },
         {
-          headers: { Authorization: `Bearer ${token}` },
+          headers,
           withCredentials: true
         }
       );
@@ -148,7 +174,9 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
       if (onSave) onSave(item);
     } catch (err) {
       console.error("Save toggle failed:", err);
-      setSavedMap(prev => ({ ...prev, [item._id]: !prev[item._id] }));
+      if (err.response?.status === 401) {
+        alert("Please log in to save dishes!");
+      }
     }
   }
 
@@ -194,7 +222,7 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
   return (
     <div className="reels-page" style={{ width: '100vw', minHeight: '100vh', margin: 0, padding: 0, backgroundColor: '#000000', overflowX: 'hidden', position: 'relative' }}>
       
-      {/* 🟢 CSS FIX FOR EQUAL BUTTON SPACING */}
+      {/* CSS FIX FOR EQUAL BUTTON SPACING */}
       <style>{`
         html, body, #root {
           margin: 0 !important;
@@ -242,10 +270,10 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
           box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5) !important;
         }
 
-        /* 🟢 BALANCED RIGHT MARGIN FOR ACTION BUTTONS */
+        /* BALANCED RIGHT MARGIN FOR ACTION BUTTONS */
         .reel-actions {
           position: absolute !important;
-          right: 28px !important; /* Increased margin to match left side padding */
+          right: 28px !important;
           bottom: 96px !important;
           display: flex !important;
           flex-direction: column !important;
@@ -276,7 +304,6 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
           text-shadow: 0 2px 4px rgba(0,0,0,0.8);
         }
 
-        /* Left details padding matching right side */
         .reel-content {
           padding-left: 28px !important;
         }
@@ -462,7 +489,7 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
               <div className="reel-overlay" style={{ pointerEvents: 'none' }}>
                 <div className="reel-overlay-gradient" aria-hidden="true" />
                 
-                {/* 🟢 PERFECTLY POSITIONED RIGHT ACTION COLUMN */}
+                {/* ACTION COLUMN (Right Side) */}
                 <div className="reel-actions" style={{ pointerEvents: 'auto', zIndex: 999 }}>
                   
                   {/* Sound Toggle */}
@@ -513,7 +540,7 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
                     <div className="reel-action__count" style={{ color: '#eab308' }}>Order</div>
                   </div>
 
-                  {/* 🟢 LIKE BUTTON (Pink/Red Heart) */}
+                  {/* LIKE BUTTON (Pink/Red Heart) */}
                   <div className="reel-action-group">
                     <button 
                       onClick={(e) => {
@@ -545,7 +572,7 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
                     </div>
                   </div>
 
-                  {/* 🟢 BOOKMARK BUTTON (Gold/Yellow Bookmark) */}
+                  {/* BOOKMARK BUTTON (Gold/Yellow Bookmark) */}
                   <div className="reel-action-group">
                     <button 
                       className="reel-action spring-btn glass-pill" 
