@@ -8,9 +8,6 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
   const videoRefs = useRef(new Map())
   const searchInputRef = useRef(null)
   const lastTapRef = useRef({ time: 0, itemId: null })
-  const likingLockRef = useRef({})
-  const savingLockRef = useRef({})
-  const initializedRef = useRef(false)
 
   const [isMuted, setIsMuted] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
@@ -19,100 +16,12 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
   const [activeCommentFoodId, setActiveCommentFoodId] = useState(null)
   const [activeOrderFood, setActiveOrderFood] = useState(null)
   
-  // State maps for instant feedback - initialize from localStorage
-  const [likedMap, setLikedMap] = useState(() => {
-    const saved = localStorage.getItem('userLikes');
-    return saved ? JSON.parse(saved) : {};
-  });
-  
-  const [savedMap, setSavedMap] = useState(() => {
-    const saved = localStorage.getItem('userSaves');
-    return saved ? JSON.parse(saved) : {};
-  });
-  
-  const [likesCountMap, setLikesCountMap] = useState({})
-  const [savesCountMap, setSavesCountMap] = useState({})
+  // 🟢 SIMPLE BULLETPROOF SETS (Guarantees strict 0 or 1 like)
+  const [likedSet, setLikedSet] = useState(new Set())
+  const [savedSet, setSavedSet] = useState(new Set())
+  const [likeOffsets, setLikeOffsets] = useState({})
+  const [saveOffsets, setSaveOffsets] = useState({})
   const [commentCounts, setCommentCounts] = useState({})
-
-  // Save liked state to localStorage whenever it changes
-  useEffect(() => {
-    localStorage.setItem('userLikes', JSON.stringify(likedMap));
-  }, [likedMap]);
-
-  useEffect(() => {
-    localStorage.setItem('userSaves', JSON.stringify(savedMap));
-  }, [savedMap]);
-
-  // Initialize likes/saves counts from items
-  useEffect(() => {
-    if (items && items.length > 0) {
-      const initialLikes = {};
-      const initialSaves = {};
-      
-      items.forEach(item => {
-        if (!likesCountMap[item._id]) {
-          initialLikes[item._id] = item.likeCount || item.likesCount || item.likes || 0;
-        }
-        if (!savesCountMap[item._id]) {
-          initialSaves[item._id] = item.saveCount || item.savesCount || item.bookmarks || item.saves || 0;
-        }
-      });
-      
-      setLikesCountMap(prev => ({ ...prev, ...initialLikes }));
-      setSavesCountMap(prev => ({ ...prev, ...initialSaves }));
-    }
-  }, [items]);
-
-  // Fetch user's like/save status from backend
-  useEffect(() => {
-    const fetchUserStatus = async () => {
-      const token = localStorage.getItem('token') || localStorage.getItem('userToken');
-      if (!token || !items || items.length === 0) return;
-
-      try {
-        const statusPromises = items.map(item => 
-          axios.get(
-            `${import.meta.env.VITE_API_URL}/api/food/like-status/${item._id}`,
-            { headers: { Authorization: `Bearer ${token}` }, withCredentials: true }
-          ).catch(() => ({ data: { liked: false, saved: false, likeCount: 0, saveCount: 0 } }))
-        );
-
-        const results = await Promise.all(statusPromises);
-        
-        const newLikedMap = {};
-        const newSavedMap = {};
-        
-        results.forEach((result, index) => {
-          if (result.data && result.data.success) {
-            const itemId = items[index]._id;
-            newLikedMap[itemId] = result.data.liked || false;
-            newSavedMap[itemId] = result.data.saved || false;
-            
-            // Update counts from server if available
-            if (result.data.likeCount !== undefined) {
-              setLikesCountMap(prev => ({
-                ...prev,
-                [itemId]: result.data.likeCount
-              }));
-            }
-            if (result.data.saveCount !== undefined) {
-              setSavesCountMap(prev => ({
-                ...prev,
-                [itemId]: result.data.saveCount
-              }));
-            }
-          }
-        });
-        
-        setLikedMap(prev => ({ ...prev, ...newLikedMap }));
-        setSavedMap(prev => ({ ...prev, ...newSavedMap }));
-      } catch (err) {
-        console.error("Failed to fetch like status:", err);
-      }
-    };
-
-    fetchUserStatus();
-  }, [items]);
 
   useEffect(() => {
     if (isSearchOpen && searchInputRef.current) {
@@ -164,7 +73,7 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
     })
   }
 
-  // Helper: Extract token safely from localStorage
+  // Extract auth token safely
   const getAuthToken = () => {
     let token = localStorage.getItem('token') || localStorage.getItem('userToken');
     const storedUser = localStorage.getItem('user');
@@ -177,202 +86,86 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
     return { token, hasUser: !!storedUser || !!token };
   }
 
-  // STRICT 1-USER 1-LIKE TOGGLE WITH SPAM LOCK
+  // 🟢 SIMPLE STRICT 1-USER 1-LIKE TOGGLE
   const handleLikeToggle = async (item) => {
     const foodId = item._id;
+    const { token, hasUser } = getAuthToken();
 
-    // Prevent rapid double execution
-    if (likingLockRef.current[foodId]) return;
+    if (!hasUser) {
+      alert("Please log in as a user to like dishes!");
+      return;
+    }
 
+    const alreadyLiked = likedSet.has(foodId);
+
+    // 1. Toggle Set
+    setLikedSet(prev => {
+      const next = new Set(prev);
+      if (alreadyLiked) next.delete(foodId);
+      else next.add(foodId);
+      return next;
+    });
+
+    // 2. Adjust offset (+1 or -1 strictly)
+    setLikeOffsets(prev => ({
+      ...prev,
+      [foodId]: alreadyLiked ? (prev[foodId] || 0) - 1 : (prev[foodId] || 0) + 1
+    }));
+
+    // 3. Send API Call
     try {
-      likingLockRef.current[foodId] = true;
-
-      const { token, hasUser } = getAuthToken();
-      if (!hasUser) {
-        alert("Please log in as a user to like dishes!");
-        return;
-      }
-
-      const isCurrentlyLiked = !!likedMap[foodId];
-
-      // Check if user is trying to like again when already liked
-      if (isCurrentlyLiked) {
-        // Unliking - proceed
-        // Optimistic UI Update
-        setLikedMap(prev => ({ ...prev, [foodId]: false }));
-        setLikesCountMap(prev => {
-          const baseCount = prev[foodId] ?? (item.likeCount ?? item.likesCount ?? item.likes ?? 0);
-          return {
-            ...prev,
-            [foodId]: Math.max(0, baseCount - 1)
-          };
-        });
-
-        const headers = {};
-        if (token) headers['Authorization'] = `Bearer ${token}`;
-
-        const res = await axios.post(
-          `${import.meta.env.VITE_API_URL}/api/food/like`,
-          { foodId },
-          { headers, withCredentials: true }
-        );
-
-        // Sync exact response state from server
-        if (res.data && res.data.success) {
-          setLikedMap(prev => ({ ...prev, [foodId]: res.data.liked || false }));
-          setLikesCountMap(prev => ({ 
-            ...prev, 
-            [foodId]: res.data.likeCount ?? prev[foodId] 
-          }));
-        }
-
-        if (onLike) onLike(item);
-        return;
-      }
-
-      // Not liked yet - Like it
-      // Optimistic UI Update
-      setLikedMap(prev => ({ ...prev, [foodId]: true }));
-      setLikesCountMap(prev => {
-        const baseCount = prev[foodId] ?? (item.likeCount ?? item.likesCount ?? item.likes ?? 0);
-        return {
-          ...prev,
-          [foodId]: baseCount + 1
-        };
-      });
-
       const headers = {};
       if (token) headers['Authorization'] = `Bearer ${token}`;
 
-      const res = await axios.post(
+      await axios.post(
         `${import.meta.env.VITE_API_URL}/api/food/like`,
         { foodId },
         { headers, withCredentials: true }
       );
 
-      // Sync exact response state from server
-      if (res.data && res.data.success) {
-        setLikedMap(prev => ({ ...prev, [foodId]: res.data.liked || false }));
-        setLikesCountMap(prev => ({ 
-          ...prev, 
-          [foodId]: res.data.likeCount ?? prev[foodId] 
-        }));
-      }
-
       if (onLike) onLike(item);
     } catch (err) {
-      console.error("Like toggle failed:", err);
-      // Rollback on error - refresh the status
-      const token = localStorage.getItem('token') || localStorage.getItem('userToken');
-      if (token) {
-        try {
-          const statusRes = await axios.get(
-            `${import.meta.env.VITE_API_URL}/api/food/like-status/${foodId}`,
-            { headers: { Authorization: `Bearer ${token}` }, withCredentials: true }
-          );
-          if (statusRes.data && statusRes.data.success) {
-            setLikedMap(prev => ({ ...prev, [foodId]: statusRes.data.liked || false }));
-            setLikesCountMap(prev => ({ ...prev, [foodId]: statusRes.data.likeCount || 0 }));
-          }
-        } catch (e) {
-          // If we can't refresh, revert to previous state
-          setLikedMap(prev => ({ ...prev, [foodId]: !prev[foodId] }));
-        }
-      } else {
-        setLikedMap(prev => ({ ...prev, [foodId]: !prev[foodId] }));
-      }
-    } finally {
-      setTimeout(() => {
-        likingLockRef.current[foodId] = false;
-      }, 400);
+      console.error("Like toggle error:", err);
     }
   }
 
-  // STRICT 1-USER 1-SAVE TOGGLE WITH SPAM LOCK
+  // 🟢 SIMPLE STRICT 1-USER 1-SAVE TOGGLE
   const handleSaveToggle = async (item) => {
     const foodId = item._id;
+    const { token, hasUser } = getAuthToken();
 
-    if (savingLockRef.current[foodId]) return;
+    if (!hasUser) {
+      alert("Please log in to save dishes!");
+      return;
+    }
+
+    const alreadySaved = savedSet.has(foodId);
+
+    setSavedSet(prev => {
+      const next = new Set(prev);
+      if (alreadySaved) next.delete(foodId);
+      else next.add(foodId);
+      return next;
+    });
+
+    setSaveOffsets(prev => ({
+      ...prev,
+      [foodId]: alreadySaved ? (prev[foodId] || 0) - 1 : (prev[foodId] || 0) + 1
+    }));
 
     try {
-      savingLockRef.current[foodId] = true;
-
-      const { token, hasUser } = getAuthToken();
-      if (!hasUser) {
-        alert("Please log in to save dishes!");
-        return;
-      }
-
-      const isCurrentlySaved = !!savedMap[foodId];
-
-      if (isCurrentlySaved) {
-        // Unsave
-        setSavedMap(prev => ({ ...prev, [foodId]: false }));
-        setSavesCountMap(prev => {
-          const baseCount = prev[foodId] ?? (item.saveCount ?? item.savesCount ?? item.bookmarks ?? item.saves ?? 0);
-          return {
-            ...prev,
-            [foodId]: Math.max(0, baseCount - 1)
-          };
-        });
-
-        const headers = {};
-        if (token) headers['Authorization'] = `Bearer ${token}`;
-
-        const res = await axios.post(
-          `${import.meta.env.VITE_API_URL}/api/food/save`,
-          { foodId },
-          { headers, withCredentials: true }
-        );
-
-        if (res.data && res.data.success) {
-          setSavedMap(prev => ({ ...prev, [foodId]: res.data.saved || false }));
-          setSavesCountMap(prev => ({ 
-            ...prev, 
-            [foodId]: res.data.saveCount ?? prev[foodId] 
-          }));
-        }
-
-        if (onSave) onSave(item);
-        return;
-      }
-
-      // Save
-      setSavedMap(prev => ({ ...prev, [foodId]: true }));
-      setSavesCountMap(prev => {
-        const baseCount = prev[foodId] ?? (item.saveCount ?? item.savesCount ?? item.bookmarks ?? item.saves ?? 0);
-        return {
-          ...prev,
-          [foodId]: baseCount + 1
-        };
-      });
-
       const headers = {};
       if (token) headers['Authorization'] = `Bearer ${token}`;
 
-      const res = await axios.post(
+      await axios.post(
         `${import.meta.env.VITE_API_URL}/api/food/save`,
         { foodId },
         { headers, withCredentials: true }
       );
 
-      if (res.data && res.data.success) {
-        setSavedMap(prev => ({ ...prev, [foodId]: res.data.saved || false }));
-        setSavesCountMap(prev => ({ 
-          ...prev, 
-          [foodId]: res.data.saveCount ?? prev[foodId] 
-        }));
-      }
-
       if (onSave) onSave(item);
     } catch (err) {
-      console.error("Save toggle failed:", err);
-      // Rollback on error
-      setSavedMap(prev => ({ ...prev, [foodId]: !prev[foodId] }));
-    } finally {
-      setTimeout(() => {
-        savingLockRef.current[foodId] = false;
-      }, 400);
+      console.error("Save toggle error:", err);
     }
   }
 
@@ -389,8 +182,7 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
       setHeartAnim({ id: item._id, x, y });
       setTimeout(() => setHeartAnim(null), 800);
 
-      // Only toggle like if not liked yet on double tap
-      if (!likedMap[item._id]) {
+      if (!likedSet.has(item._id)) {
         handleLikeToggle(item);
       }
       lastTapRef.current = { time: 0, itemId: null };
@@ -623,11 +415,14 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
           const foodDishName = item?.name || item?.title || item?.foodName || 'Dish Item';
           const price = item?.price || item?.basePrice || item?.portions?.medium || item?.portions?.small || 0;
 
-          const isLiked = !!likedMap[item._id];
-          const displayLikes = likesCountMap[item._id] ?? (item.likeCount ?? item.likesCount ?? item.likes ?? 0);
+          // 🟢 CALCULATE EXACT LIKE/SAVE STATES AND COUNTS
+          const isLiked = likedSet.has(item._id);
+          const baseLikes = item.likeCount ?? item.likesCount ?? item.likes ?? 0;
+          const displayLikes = Math.max(0, baseLikes + (likeOffsets[item._id] || 0));
 
-          const isSaved = !!savedMap[item._id];
-          const displaySaves = savesCountMap[item._id] ?? (item.saveCount ?? item.savesCount ?? item.bookmarks ?? item.saves ?? 0);
+          const isSaved = savedSet.has(item._id);
+          const baseSaves = item.saveCount ?? item.savesCount ?? item.bookmarks ?? item.saves ?? 0;
+          const displaySaves = Math.max(0, baseSaves + (saveOffsets[item._id] || 0));
 
           const baseCommentCount = item.commentsCount ?? (Array.isArray(item.comments) ? item.comments.length : 0);
           const currentCommentCount = baseCommentCount + (commentCounts[item._id] || 0);
@@ -736,7 +531,7 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
                     <div className="reel-action__count" style={{ color: '#eab308' }}>Order</div>
                   </div>
 
-                  {/* LIKE BUTTON */}
+                  {/* 🟢 LIKE BUTTON (Strict 0 or 1 Toggle) */}
                   <div className="reel-action-group">
                     <button 
                       onClick={(e) => {
@@ -768,7 +563,7 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
                     </div>
                   </div>
 
-                  {/* BOOKMARK BUTTON */}
+                  {/* 🟢 BOOKMARK BUTTON (Strict 0 or 1 Toggle) */}
                   <div className="reel-action-group">
                     <button 
                       className="reel-action spring-btn glass-pill" 
