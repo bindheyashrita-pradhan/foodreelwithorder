@@ -16,12 +16,24 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
   const [activeCommentFoodId, setActiveCommentFoodId] = useState(null)
   const [activeOrderFood, setActiveOrderFood] = useState(null)
   
-  // 🟢 SIMPLE BULLETPROOF SETS (Guarantees strict 0 or 1 like)
   const [likedSet, setLikedSet] = useState(new Set())
   const [savedSet, setSavedSet] = useState(new Set())
   const [likeOffsets, setLikeOffsets] = useState({})
   const [saveOffsets, setSaveOffsets] = useState({})
   const [commentCounts, setCommentCounts] = useState({})
+
+  // 🟢 PROPER FIX: Initialize likedSet from backend item.isLiked on page load / refresh
+  useEffect(() => {
+    if (Array.isArray(items) && items.length > 0) {
+      const initialLiked = new Set();
+      items.forEach((item) => {
+        if (item.isLiked) {
+          initialLiked.add(item._id);
+        }
+      });
+      setLikedSet(initialLiked);
+    }
+  }, [items]);
 
   useEffect(() => {
     if (isSearchOpen && searchInputRef.current) {
@@ -73,7 +85,6 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
     })
   }
 
-  // Extract auth token safely
   const getAuthToken = () => {
     let token = localStorage.getItem('token') || localStorage.getItem('userToken');
     const storedUser = localStorage.getItem('user');
@@ -86,7 +97,7 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
     return { token, hasUser: !!storedUser || !!token };
   }
 
-  // 🟢 SIMPLE STRICT 1-USER 1-LIKE TOGGLE
+  // 🟢 STRICT 1-USER 1-LIKE TOGGLE
   const handleLikeToggle = async (item) => {
     const foodId = item._id;
     const { token, hasUser } = getAuthToken();
@@ -98,7 +109,6 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
 
     const alreadyLiked = likedSet.has(foodId);
 
-    // 1. Toggle Set
     setLikedSet(prev => {
       const next = new Set(prev);
       if (alreadyLiked) next.delete(foodId);
@@ -106,13 +116,11 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
       return next;
     });
 
-    // 2. Adjust offset (+1 or -1 strictly)
     setLikeOffsets(prev => ({
       ...prev,
       [foodId]: alreadyLiked ? (prev[foodId] || 0) - 1 : (prev[foodId] || 0) + 1
     }));
 
-    // 3. Send API Call
     try {
       const headers = {};
       if (token) headers['Authorization'] = `Bearer ${token}`;
@@ -129,7 +137,7 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
     }
   }
 
-  // 🟢 SIMPLE STRICT 1-USER 1-SAVE TOGGLE
+  // 🟢 STRICT 1-USER 1-SAVE TOGGLE
   const handleSaveToggle = async (item) => {
     const foodId = item._id;
     const { token, hasUser } = getAuthToken();
@@ -169,7 +177,6 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
     }
   }
 
-  // Double tap to like handler
   const handleVideoClick = (e, item) => {
     const now = Date.now();
     const DOUBLE_TAP_DELAY = 300;
@@ -415,7 +422,6 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
           const foodDishName = item?.name || item?.title || item?.foodName || 'Dish Item';
           const price = item?.price || item?.basePrice || item?.portions?.medium || item?.portions?.small || 0;
 
-          // 🟢 CALCULATE EXACT LIKE/SAVE STATES AND COUNTS
           const isLiked = likedSet.has(item._id);
           const baseLikes = item.likeCount ?? item.likesCount ?? item.likes ?? 0;
           const displayLikes = Math.max(0, baseLikes + (likeOffsets[item._id] || 0));
@@ -531,7 +537,7 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
                     <div className="reel-action__count" style={{ color: '#eab308' }}>Order</div>
                   </div>
 
-                  {/* 🟢 LIKE BUTTON (Strict 0 or 1 Toggle) */}
+                  {/* LIKE BUTTON */}
                   <div className="reel-action-group">
                     <button 
                       onClick={(e) => {
@@ -563,7 +569,7 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
                     </div>
                   </div>
 
-                  {/* 🟢 BOOKMARK BUTTON (Strict 0 or 1 Toggle) */}
+                  {/* BOOKMARK BUTTON */}
                   <div className="reel-action-group">
                     <button 
                       className="reel-action spring-btn glass-pill" 

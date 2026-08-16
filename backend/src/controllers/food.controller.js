@@ -4,12 +4,29 @@ const likeModel = require("../models/likes.model");
 const saveModel = require("../models/save.model");
 const commentModel = require('../models/comment.model');
 const userModel = require('../models/user.model');
+const jwt = require('jsonwebtoken'); // 🟢 Required for JWT decoding on getFoodItems
 const { v4: uuid } = require("uuid");
 
 // Pre-load food partner model to prevent Mongoose population errors
 try {
   require('../models/foodpartner.model');
 } catch (e) {}
+
+// 🟢 HELPER: Safely extract user ID from request token or cookies
+const getUserIdFromRequest = (req) => {
+  try {
+    let token = req.cookies?.token || req.cookies?.userToken;
+    const authHeader = req.headers.authorization || req.headers.Authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.split(' ')[1];
+    }
+    if (token && process.env.JWT_SECRET) {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      return decoded.id || decoded._id || null;
+    }
+  } catch (e) {}
+  return null;
+};
 
 // 🟢 1. CREATE FOOD
 async function createFood(req, res) {
@@ -60,7 +77,7 @@ async function createFood(req, res) {
   }
 }
 
-// 🟢 2. GET ALL FOOD ITEMS (SAFE FETCH)
+// 🟢 2. GET ALL FOOD ITEMS (Includes isLiked & isSaved on refresh)
 async function getFoodItems(req, res) {
   try {
     let rawFoodItems = [];
@@ -75,7 +92,32 @@ async function getFoodItems(req, res) {
       rawFoodItems = await foodModel.find({});
     }
 
-    // Attach real-time comment count safely
+    // Extract logged-in user ID to check which videos they liked/saved
+    const userId = getUserIdFromRequest(req);
+    let userLikedFoodIds = new Set();
+    let userSavedFoodIds = new Set();
+
+    if (userId) {
+      if (likeModel) {
+        try {
+          const userLikes = await likeModel.find({ user: userId }).select('food');
+          userLikes.forEach(l => {
+            if (l.food) userLikedFoodIds.add(l.food.toString());
+          });
+        } catch (lErr) {}
+      }
+
+      if (saveModel) {
+        try {
+          const userSaves = await saveModel.find({ user: userId }).select('food');
+          userSaves.forEach(s => {
+            if (s.food) userSavedFoodIds.add(s.food.toString());
+          });
+        } catch (sErr) {}
+      }
+    }
+
+    // Attach comments count + isLiked + isSaved flags
     const foodItems = await Promise.all(
       rawFoodItems.map(async (item) => {
         try {
@@ -88,9 +130,13 @@ async function getFoodItems(req, res) {
             } catch (cErr) {}
           }
 
+          const foodIdStr = item._id.toString();
+
           return {
             ...doc,
-            commentsCount: doc.commentsCount || commentsCount || 0
+            commentsCount: doc.commentsCount || commentsCount || 0,
+            isLiked: userLikedFoodIds.has(foodIdStr), // 🟢 Persists liked heart state on refresh!
+            isSaved: userSavedFoodIds.has(foodIdStr)  // 🟢 Persists bookmark state on refresh!
           };
         } catch (e) {
           return item.toObject ? item.toObject() : item;
