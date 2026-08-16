@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
+import axios from 'axios'
 import CommentModal from './CommentModal'
 import OrderModal from './OrderModal'
 
@@ -15,7 +16,7 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
   const [activeCommentFoodId, setActiveCommentFoodId] = useState(null)
   const [activeOrderFood, setActiveOrderFood] = useState(null)
   
-  // 🟢 LOCAL STATES FOR INSTANT LIKED/SAVED COLOR VISUAL FEEDBACK
+  // Local state maps for instant feedback synced with DB
   const [likedMap, setLikedMap] = useState({})
   const [savedMap, setSavedMap] = useState({})
   const [likesCountMap, setLikesCountMap] = useState({})
@@ -72,26 +73,83 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
     })
   }
 
-  // 🟢 TOGGLE LIKE HANDLER (Instant Pink Heart + Count update)
-  const toggleLike = (item) => {
-    const isLiked = !!likedMap[item._id];
-    const currentCount = likesCountMap[item._id] ?? (item.likeCount ?? item.likesCount ?? item.likes ?? 0);
-    
-    setLikedMap(prev => ({ ...prev, [item._id]: !isLiked }));
-    setLikesCountMap(prev => ({ ...prev, [item._id]: isLiked ? Math.max(0, currentCount - 1) : currentCount + 1 }));
+  // 🟢 REAL BACKEND-SYNCED LIKE/UNLIKE TOGGLE
+  const handleLikeToggle = async (item) => {
+    try {
+      const token = localStorage.getItem('token') || localStorage.getItem('userToken');
+      if (!token) {
+        alert("Please log in as a user to like dishes!");
+        return;
+      }
 
-    if (onLike) onLike(item);
+      const isCurrentlyLiked = !!likedMap[item._id];
+      const baseCount = likesCountMap[item._id] ?? (item.likeCount ?? item.likesCount ?? item.likes ?? 0);
+
+      // Instant Optimistic UI Update
+      setLikedMap(prev => ({ ...prev, [item._id]: !isCurrentlyLiked }));
+      setLikesCountMap(prev => ({
+        ...prev,
+        [item._id]: isCurrentlyLiked ? Math.max(0, baseCount - 1) : baseCount + 1
+      }));
+
+      // Call Backend API
+      const res = await axios.post(
+        `${import.meta.env.VITE_API_URL}/api/food/like`,
+        { foodId: item._id },
+        {
+          headers: { Authorization: `Bearer ${token}` },
+          withCredentials: true
+        }
+      );
+
+      if (res.data?.message === "Food unliked successfully") {
+        setLikedMap(prev => ({ ...prev, [item._id]: false }));
+      } else if (res.data?.message === "Food liked successfully") {
+        setLikedMap(prev => ({ ...prev, [item._id]: true }));
+      }
+
+      if (onLike) onLike(item);
+    } catch (err) {
+      console.error("Like toggle failed:", err);
+      // Rollback on error
+      setLikedMap(prev => ({ ...prev, [item._id]: !prev[item._id] }));
+    }
   }
 
-  // 🟢 TOGGLE SAVE HANDLER (Instant Gold Bookmark + Count update)
-  const toggleSave = (item) => {
-    const isSaved = !!savedMap[item._id];
-    const currentCount = savesCountMap[item._id] ?? (item.saveCount ?? item.savesCount ?? item.bookmarks ?? item.saves ?? 0);
-    
-    setSavedMap(prev => ({ ...prev, [item._id]: !isSaved }));
-    setSavesCountMap(prev => ({ ...prev, [item._id]: isSaved ? Math.max(0, currentCount - 1) : currentCount + 1 }));
+  // 🟢 REAL BACKEND-SYNCED SAVE/UNSAVE TOGGLE
+  const handleSaveToggle = async (item) => {
+    try {
+      const token = localStorage.getItem('token') || localStorage.getItem('userToken');
+      if (!token) {
+        alert("Please log in to save dishes!");
+        return;
+      }
 
-    if (onSave) onSave(item);
+      const isCurrentlySaved = !!savedMap[item._id];
+      const baseCount = savesCountMap[item._id] ?? (item.saveCount ?? item.savesCount ?? item.bookmarks ?? item.saves ?? 0);
+
+      // Instant Optimistic UI Update
+      setSavedMap(prev => ({ ...prev, [item._id]: !isCurrentlySaved }));
+      setSavesCountMap(prev => ({
+        ...prev,
+        [item._id]: isCurrentlySaved ? Math.max(0, baseCount - 1) : baseCount + 1
+      }));
+
+      // Call Backend API
+      const res = await axios.post(
+        `${import.meta.env.VITE_API_URL}/api/food/save`,
+        { foodId: item._id },
+        {
+          headers: { Authorization: `Bearer ${token}` },
+          withCredentials: true
+        }
+      );
+
+      if (onSave) onSave(item);
+    } catch (err) {
+      console.error("Save toggle failed:", err);
+      setSavedMap(prev => ({ ...prev, [item._id]: !prev[item._id] }));
+    }
   }
 
   // Double tap to like handler
@@ -108,7 +166,7 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
       setTimeout(() => setHeartAnim(null), 800);
 
       if (!likedMap[item._id]) {
-        toggleLike(item);
+        handleLikeToggle(item);
       }
       lastTapRef.current = { time: 0, itemId: null };
     } else {
@@ -136,7 +194,7 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
   return (
     <div className="reels-page" style={{ width: '100vw', minHeight: '100vh', margin: 0, padding: 0, backgroundColor: '#000000', overflowX: 'hidden', position: 'relative' }}>
       
-      {/* 🟢 FIXED BUTTON POSITIONING & PINK/GOLD FILLED STYLES */}
+      {/* 🟢 CSS FIX FOR EQUAL BUTTON SPACING */}
       <style>{`
         html, body, #root {
           margin: 0 !important;
@@ -162,7 +220,7 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
         }
 
         .spring-btn {
-          transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.2s ease, border-color 0.2s ease;
+          transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.2s ease;
           cursor: pointer;
           user-select: none;
           -webkit-tap-highlight-color: transparent;
@@ -184,11 +242,11 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
           box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5) !important;
         }
 
-        /* 🟢 PERFECTLY POSITIONED ACTION BUTTONS COLUMN */
+        /* 🟢 BALANCED RIGHT MARGIN FOR ACTION BUTTONS */
         .reel-actions {
           position: absolute !important;
-          right: 16px !important;
-          bottom: 96px !important; /* Positions buttons nicely above bottom bar */
+          right: 28px !important; /* Increased margin to match left side padding */
+          bottom: 96px !important;
           display: flex !important;
           flex-direction: column !important;
           align-items: center !important;
@@ -217,16 +275,21 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
           font-weight: 700 !important;
           text-shadow: 0 2px 4px rgba(0,0,0,0.8);
         }
+
+        /* Left details padding matching right side */
+        .reel-content {
+          padding-left: 28px !important;
+        }
       `}</style>
 
-      {/* FLOATING SEARCH PILL */}
+      {/* SEARCH BAR */}
       <div 
         style={{
           position: 'fixed',
           top: '64px',
-          right: '16px',
+          right: '28px',
           zIndex: 9999,
-          width: isSearchOpen ? 'calc(100vw - 32px)' : 'auto',
+          width: isSearchOpen ? 'calc(100vw - 56px)' : 'auto',
           maxWidth: isSearchOpen ? '500px' : '140px',
           left: isSearchOpen ? '50%' : 'auto',
           transform: isSearchOpen ? 'translateX(-50%)' : 'none',
@@ -337,7 +400,6 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
           const foodDishName = item?.name || item?.title || item?.foodName || 'Dish Item';
           const price = item?.price || item?.basePrice || item?.portions?.medium || item?.portions?.small || 0;
 
-          // 🟢 LIKED AND SAVED COMPUTED STATES
           const isLiked = !!likedMap[item._id];
           const displayLikes = likesCountMap[item._id] ?? (item.likeCount ?? item.likesCount ?? item.likes ?? 0);
 
@@ -400,7 +462,7 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
               <div className="reel-overlay" style={{ pointerEvents: 'none' }}>
                 <div className="reel-overlay-gradient" aria-hidden="true" />
                 
-                {/* 🟢 ALIGNED RIGHT ACTION BUTTONS COLUMN */}
+                {/* 🟢 PERFECTLY POSITIONED RIGHT ACTION COLUMN */}
                 <div className="reel-actions" style={{ pointerEvents: 'auto', zIndex: 999 }}>
                   
                   {/* Sound Toggle */}
@@ -429,7 +491,7 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
                     <div className="reel-action__count" style={{ color: '#d4d4d8' }}>{isMuted ? 'Muted' : 'Sound On'}</div>
                   </div>
 
-                  {/* Order Button (Primary Yellow Pill) */}
+                  {/* Order Button */}
                   <div className="reel-action-group" style={{ pointerEvents: 'auto', zIndex: 1000 }}>
                     <button 
                       type="button"
@@ -451,12 +513,12 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
                     <div className="reel-action__count" style={{ color: '#eab308' }}>Order</div>
                   </div>
 
-                  {/* 🟢 LIKE BUTTON (Pink/Red Filled on Active) */}
+                  {/* 🟢 LIKE BUTTON (Pink/Red Heart) */}
                   <div className="reel-action-group">
                     <button 
                       onClick={(e) => {
                         e.stopPropagation();
-                        toggleLike(item);
+                        handleLikeToggle(item);
                       }} 
                       className="reel-action spring-btn glass-pill" 
                       aria-label="Like"
@@ -483,13 +545,13 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
                     </div>
                   </div>
 
-                  {/* 🟢 BOOKMARK BUTTON (Gold/Yellow Filled on Active) */}
+                  {/* 🟢 BOOKMARK BUTTON (Gold/Yellow Bookmark) */}
                   <div className="reel-action-group">
                     <button 
                       className="reel-action spring-btn glass-pill" 
                       onClick={(e) => {
                         e.stopPropagation();
-                        toggleSave(item);
+                        handleSaveToggle(item);
                       }} 
                       aria-label="Bookmark"
                       style={{
