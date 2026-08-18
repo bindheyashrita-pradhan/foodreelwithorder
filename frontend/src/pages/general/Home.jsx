@@ -1,79 +1,69 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import '../../styles/reels.css'
-import ReelFeed from '../../components/ReelFeed'
+import ReelFeed from '../../components/ReelFeed';
 
 const Home = () => {
-  const [ videos, setVideos ] = useState([])
+    const [foodItems, setFoodItems] = useState([]);
+    const [loading, setLoading] = useState(true);
 
-  // Fetch all videos from the backend database when the page loads
-  useEffect(() => {
-    axios.get(`${import.meta.env.VITE_API_URL}/api/food`, { withCredentials: true })
-      .then(response => {
-        console.log("Fetched food items:", response.data);
-        setVideos(response.data.foodItems || response.data.fooditems || [])
-      })
-      .catch((err) => { console.error("Error fetching videos:", err) })
-  }, [])
+    const fetchFoodItems = async () => {
+        try {
+            setLoading(true);
 
-  // Function to handle Liking / Unliking a video
-  async function likeVideo(item) {
-    try {
-      const response = await axios.post(
-        `${import.meta.env.VITE_API_URL}/api/food/like`, 
-        { foodId: item._id }, 
-        { withCredentials: true }
-      )
+            // Extract authentication token from localStorage
+            let token = localStorage.getItem('token') || localStorage.getItem('userToken');
+            if (!token) {
+                const storedUser = localStorage.getItem('user');
+                if (storedUser) {
+                    try { token = JSON.parse(storedUser).token; } catch (e) {}
+                }
+            }
 
-      console.log("Like response:", response.data);
+            // Set Authorization header so backend returns isLiked status
+            const headers = {};
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`;
+            }
 
-      if (response.data.message === "Food liked successfully" || response.data.like) {
-        console.log("Video liked");
-        setVideos((prev) => 
-          prev.map((v) => v._id === item._id ? { ...v, likeCount: (v.likeCount || 0) + 1 } : v)
-        )
-      } else {
-        console.log("Video unliked");
-        setVideos((prev) => 
-          prev.map((v) => v._id === item._id ? { ...v, likeCount: Math.max(0, (v.likeCount || 0) - 1) } : v)
-        )
-      }
-    } catch (error) {
-      console.error("Error liking video:", error.response?.data || error.message);
+            const res = await axios.get(
+                `${import.meta.env.VITE_API_URL}/api/food`,
+                { headers, withCredentials: true }
+            );
+
+            console.log("Fetched food items:", res.data);
+
+            const items = res.data?.foodItems || res.data?.foods || res.data || [];
+            setFoodItems(items);
+        } catch (err) {
+            console.error("Failed to fetch food reels:", err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchFoodItems();
+    }, []);
+
+    if (loading) {
+        return (
+            <div style={{ 
+                minHeight: '100vh', 
+                backgroundColor: '#000000', 
+                color: '#ffffff', 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center',
+                fontFamily: 'system-ui, sans-serif'
+            }}>
+                <p style={{ fontSize: '16px', color: '#a1a1aa' }}>Loading food reels...</p>
+            </div>
+        );
     }
-  }
 
-  // Function to handle Saving / Unsaving a video
-  async function saveCount(item) {
-    try {
-      const response = await axios.post(
-        `${import.meta.env.VITE_API_URL}/api/food/save`, 
-        { foodId: item._id }, 
-        { withCredentials: true }
-      )
+    return (
+        <ReelFeed items={foodItems} emptyMessage="No food reels available right now." />
+    );
+};
 
-      if (response.data.message === "Food saved successfully" || response.data.save) {
-        setVideos((prev) => 
-          prev.map((v) => v._id === item._id ? { ...v, saveCount: (v.saveCount || 0) + 1 } : v)
-        )
-      } else {
-        setVideos((prev) => 
-          prev.map((v) => v._id === item._id ? { ...v, saveCount: Math.max(0, (v.saveCount || 0) - 1) } : v)
-        )
-      }
-    } catch (error) {
-      console.error("Error saving video:", error.response?.data || error.message);
-    }
-  }
-
-  return (
-    <ReelFeed 
-      items={videos} 
-      onLike={likeVideo} 
-      onSave={saveCount} 
-      emptyMessage="No videos available." 
-    />
-  )
-}
-
-export default Home
+export default Home;

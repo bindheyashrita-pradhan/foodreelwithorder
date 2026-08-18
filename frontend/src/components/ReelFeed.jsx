@@ -8,6 +8,7 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
   const videoRefs = useRef(new Map())
   const searchInputRef = useRef(null)
   const lastTapRef = useRef({ time: 0, itemId: null })
+  const likingLockRef = useRef({})
 
   const [isMuted, setIsMuted] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
@@ -16,22 +17,31 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
   const [activeCommentFoodId, setActiveCommentFoodId] = useState(null)
   const [activeOrderFood, setActiveOrderFood] = useState(null)
   
-  const [likedSet, setLikedSet] = useState(new Set())
-  const [savedSet, setSavedSet] = useState(new Set())
-  const [likeOffsets, setLikeOffsets] = useState({})
-  const [saveOffsets, setSaveOffsets] = useState({})
+  // Local state maps synced strictly with server DB
+  const [likedMap, setLikedMap] = useState({})
+  const [savedMap, setSavedMap] = useState({})
+  const [likesCountMap, setLikesCountMap] = useState({})
+  const [savesCountMap, setSavesCountMap] = useState({})
   const [commentCounts, setCommentCounts] = useState({})
 
-  // 🟢 PROPER FIX: Initialize likedSet from backend item.isLiked on page load / refresh
+  // 🟢 Sync initial liked/saved states from backend item data
   useEffect(() => {
     if (Array.isArray(items) && items.length > 0) {
-      const initialLiked = new Set();
+      const initialLikedMap = {};
+      const initialSavedMap = {};
+      const initialLikesCount = {};
+
       items.forEach((item) => {
-        if (item.isLiked) {
-          initialLiked.add(item._id);
+        if (item._id) {
+          initialLikedMap[item._id] = !!item.isLiked;
+          initialSavedMap[item._id] = !!item.isSaved;
+          initialLikesCount[item._id] = item.likeCount ?? item.likesCount ?? item.likes ?? 0;
         }
       });
-      setLikedSet(initialLiked);
+
+      setLikedMap(initialLikedMap);
+      setSavedMap(initialSavedMap);
+      setLikesCountMap(initialLikesCount);
     }
   }, [items]);
 
@@ -97,47 +107,52 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
     return { token, hasUser: !!storedUser || !!token };
   }
 
-  // 🟢 STRICT 1-USER 1-LIKE TOGGLE
+  // 🟢 SERVER-SYNCED LIKE TOGGLE (Strict single source of truth)
   const handleLikeToggle = async (item) => {
     const foodId = item._id;
-    const { token, hasUser } = getAuthToken();
-
-    if (!hasUser) {
-      alert("Please log in as a user to like dishes!");
-      return;
-    }
-
-    const alreadyLiked = likedSet.has(foodId);
-
-    setLikedSet(prev => {
-      const next = new Set(prev);
-      if (alreadyLiked) next.delete(foodId);
-      else next.add(foodId);
-      return next;
-    });
-
-    setLikeOffsets(prev => ({
-      ...prev,
-      [foodId]: alreadyLiked ? (prev[foodId] || 0) - 1 : (prev[foodId] || 0) + 1
-    }));
+    if (likingLockRef.current[foodId]) return;
 
     try {
+      likingLockRef.current[foodId] = true;
+      const { token, hasUser } = getAuthToken();
+
+      if (!hasUser) {
+        alert("Please log in as a user to like dishes!");
+        return;
+      }
+
       const headers = {};
       if (token) headers['Authorization'] = `Bearer ${token}`;
 
-      await axios.post(
+      // Call Backend API
+      const res = await axios.post(
         `${import.meta.env.VITE_API_URL}/api/food/like`,
         { foodId },
         { headers, withCredentials: true }
       );
 
+      console.log("Like API response:", res.data);
+
+      if (res.data?.success) {
+        // Set exact server response
+        const serverLiked = res.data.liked;
+        const serverCount = res.data.likeCount;
+
+        setLikedMap(prev => ({ ...prev, [foodId]: serverLiked }));
+        if (typeof serverCount === 'number') {
+          setLikesCountMap(prev => ({ ...prev, [foodId]: serverCount }));
+        }
+      }
+
       if (onLike) onLike(item);
     } catch (err) {
       console.error("Like toggle error:", err);
+    } finally {
+      setTimeout(() => { likingLockRef.current[foodId] = false; }, 300);
     }
   }
 
-  // 🟢 STRICT 1-USER 1-SAVE TOGGLE
+  // 🟢 SERVER-SYNCED SAVE TOGGLE
   const handleSaveToggle = async (item) => {
     const foodId = item._id;
     const { token, hasUser } = getAuthToken();
@@ -147,21 +162,10 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
       return;
     }
 
-    const alreadySaved = savedSet.has(foodId);
-
-    setSavedSet(prev => {
-      const next = new Set(prev);
-      if (alreadySaved) next.delete(foodId);
-      else next.add(foodId);
-      return next;
-    });
-
-    setSaveOffsets(prev => ({
-      ...prev,
-      [foodId]: alreadySaved ? (prev[foodId] || 0) - 1 : (prev[foodId] || 0) + 1
-    }));
-
     try {
+      const isCurrentlySaved = !!savedMap[foodId];
+      setSavedMap(prev => ({ ...prev, [foodId]: !isCurrentlySaved }));
+
       const headers = {};
       if (token) headers['Authorization'] = `Bearer ${token}`;
 
@@ -174,9 +178,11 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
       if (onSave) onSave(item);
     } catch (err) {
       console.error("Save toggle error:", err);
+      setSavedMap(prev => ({ ...prev, [foodId]: !prev[foodId] }));
     }
   }
 
+  // Double tap to like handler
   const handleVideoClick = (e, item) => {
     const now = Date.now();
     const DOUBLE_TAP_DELAY = 300;
@@ -189,7 +195,7 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
       setHeartAnim({ id: item._id, x, y });
       setTimeout(() => setHeartAnim(null), 800);
 
-      if (!likedSet.has(item._id)) {
+      if (!likedMap[item._id]) {
         handleLikeToggle(item);
       }
       lastTapRef.current = { time: 0, itemId: null };
@@ -422,13 +428,11 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
           const foodDishName = item?.name || item?.title || item?.foodName || 'Dish Item';
           const price = item?.price || item?.basePrice || item?.portions?.medium || item?.portions?.small || 0;
 
-          const isLiked = likedSet.has(item._id);
-          const baseLikes = item.likeCount ?? item.likesCount ?? item.likes ?? 0;
-          const displayLikes = Math.max(0, baseLikes + (likeOffsets[item._id] || 0));
+          const isLiked = !!likedMap[item._id];
+          const displayLikes = likesCountMap[item._id] ?? (item.likeCount ?? item.likesCount ?? item.likes ?? 0);
 
-          const isSaved = savedSet.has(item._id);
-          const baseSaves = item.saveCount ?? item.savesCount ?? item.bookmarks ?? item.saves ?? 0;
-          const displaySaves = Math.max(0, baseSaves + (saveOffsets[item._id] || 0));
+          const isSaved = !!savedMap[item._id];
+          const displaySaves = savesCountMap[item._id] ?? (item.saveCount ?? item.savesCount ?? item.bookmarks ?? item.saves ?? 0);
 
           const baseCommentCount = item.commentsCount ?? (Array.isArray(item.comments) ? item.comments.length : 0);
           const currentCommentCount = baseCommentCount + (commentCounts[item._id] || 0);

@@ -4,7 +4,7 @@ const likeModel = require("../models/likes.model");
 const saveModel = require("../models/save.model");
 const commentModel = require('../models/comment.model');
 const userModel = require('../models/user.model');
-const jwt = require('jsonwebtoken'); // 🟢 Required for JWT decoding on getFoodItems
+const jwt = require('jsonwebtoken');
 const { v4: uuid } = require("uuid");
 
 // Pre-load food partner model to prevent Mongoose population errors
@@ -12,7 +12,7 @@ try {
   require('../models/foodpartner.model');
 } catch (e) {}
 
-// 🟢 HELPER: Safely extract user ID from request token or cookies
+// 🟢 HELPER: Extract user ID safely from request header token or cookies
 const getUserIdFromRequest = (req) => {
   try {
     let token = req.cookies?.token || req.cookies?.userToken;
@@ -77,12 +77,11 @@ async function createFood(req, res) {
   }
 }
 
-// 🟢 2. GET ALL FOOD ITEMS (Includes isLiked & isSaved on refresh)
+// 🟢 2. GET ALL FOOD ITEMS (Includes isLiked & isSaved status for logged in user)
 async function getFoodItems(req, res) {
   try {
     let rawFoodItems = [];
 
-    // Try fetching with populate, or fall back to plain query if populate fails
     try {
       rawFoodItems = await foodModel
         .find({})
@@ -92,7 +91,7 @@ async function getFoodItems(req, res) {
       rawFoodItems = await foodModel.find({});
     }
 
-    // Extract logged-in user ID to check which videos they liked/saved
+    // Extract user ID from token or cookies
     const userId = getUserIdFromRequest(req);
     let userLikedFoodIds = new Set();
     let userSavedFoodIds = new Set();
@@ -135,8 +134,8 @@ async function getFoodItems(req, res) {
           return {
             ...doc,
             commentsCount: doc.commentsCount || commentsCount || 0,
-            isLiked: userLikedFoodIds.has(foodIdStr), // 🟢 Persists liked heart state on refresh!
-            isSaved: userSavedFoodIds.has(foodIdStr)  // 🟢 Persists bookmark state on refresh!
+            isLiked: userLikedFoodIds.has(foodIdStr), // 🟢 Persists liked heart state on refresh
+            isSaved: userSavedFoodIds.has(foodIdStr)  // 🟢 Persists bookmark state on refresh
           };
         } catch (e) {
           return item.toObject ? item.toObject() : item;
@@ -156,7 +155,7 @@ async function getFoodItems(req, res) {
   }
 }
 
-// 🟢 3. LIKE FOOD
+// 🟢 3. LIKE FOOD (Strict Database Toggling & Count Returns)
 async function likeFood(req, res) {
   try {
     const { foodId } = req.body;
@@ -176,34 +175,42 @@ async function likeFood(req, res) {
     });
 
     if (isAlreadyLiked) {
-      await likeModel.deleteOne({
-        user: user._id,
-        food: foodId
-      });
+      // User already liked -> Unlike it
+      await likeModel.deleteOne({ _id: isAlreadyLiked._id });
 
-      await foodModel.findByIdAndUpdate(foodId, {
-        $inc: { likeCount: -1 }
-      });
+      const updatedFood = await foodModel.findByIdAndUpdate(
+        foodId,
+        { $inc: { likeCount: -1 } },
+        { new: true }
+      );
+
+      const count = Math.max(0, updatedFood?.likeCount || 0);
 
       return res.status(200).json({
         success: true,
-        message: "Food unliked successfully"
+        message: "Food unliked successfully",
+        liked: false,
+        likeCount: count
       });
     }
 
-    const like = await likeModel.create({
+    // User hasn't liked -> Like it
+    await likeModel.create({
       user: user._id,
       food: foodId
     });
 
-    await foodModel.findByIdAndUpdate(foodId, {
-      $inc: { likeCount: 1 }
-    });
+    const updatedFood = await foodModel.findByIdAndUpdate(
+      foodId,
+      { $inc: { likeCount: 1 } },
+      { new: true }
+    );
 
-    return res.status(201).json({
+    return res.status(200).json({
       success: true,
       message: "Food liked successfully",
-      like
+      liked: true,
+      likeCount: updatedFood?.likeCount || 1
     });
   } catch (error) {
     console.error("Error in likeFood:", error);
@@ -231,34 +238,38 @@ async function saveFood(req, res) {
     });
 
     if (isAlreadySaved) {
-      await saveModel.deleteOne({
-        user: user._id,
-        food: foodId
-      });
+      await saveModel.deleteOne({ _id: isAlreadySaved._id });
 
-      await foodModel.findByIdAndUpdate(foodId, {
-        $inc: { saveCount: -1 }
-      });
+      const updatedFood = await foodModel.findByIdAndUpdate(
+        foodId,
+        { $inc: { saveCount: -1 } },
+        { new: true }
+      );
 
       return res.status(200).json({
         success: true,
-        message: "Food Unsaved successfully"
+        message: "Food Unsaved successfully",
+        saved: false,
+        saveCount: Math.max(0, updatedFood?.saveCount || 0)
       });
     }
 
-    const save = await saveModel.create({
+    await saveModel.create({
       user: user._id,
       food: foodId
     });
 
-    await foodModel.findByIdAndUpdate(foodId, {
-      $inc: { saveCount: 1 }
-    });
+    const updatedFood = await foodModel.findByIdAndUpdate(
+      foodId,
+      { $inc: { saveCount: 1 } },
+      { new: true }
+    );
 
-    return res.status(201).json({
+    return res.status(200).json({
       success: true,
       message: "Food saved successfully",
-      save
+      saved: true,
+      saveCount: updatedFood?.saveCount || 1
     });
   } catch (error) {
     console.error("Error in saveFood:", error);
