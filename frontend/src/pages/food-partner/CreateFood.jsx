@@ -14,6 +14,7 @@ const CreateFood = () => {
     const [ videoFile, setVideoFile ] = useState(null);
     const [ videoURL, setVideoURL ] = useState('');
     const [ fileError, setFileError ] = useState('');
+    const [ loading, setLoading ] = useState(false);
     const fileInputRef = useRef(null);
 
     const navigate = useNavigate();
@@ -56,14 +57,12 @@ const CreateFood = () => {
         e.preventDefault();
 
         const formData = new FormData();
-
         formData.append('name', name);
         formData.append('description', description);
         formData.append('price', Number(price));
         formData.append('category', category);
         formData.append("video", videoFile);
 
-        // Package portion pricing object
         const portions = {
             small: Number(smallPrice) || Math.round(Number(price) * 0.8),
             medium: Number(mediumPrice) || Number(price),
@@ -72,19 +71,23 @@ const CreateFood = () => {
 
         formData.append('portions', JSON.stringify(portions));
 
+        setLoading(true);
         try {
             const response = await axios.post(`${import.meta.env.VITE_API_URL}/api/food`, formData, {
                 withCredentials: true,
             });
 
             console.log(response.data);
-            navigate("/"); // Redirect to home after successful creation
+            navigate("/");
         } catch (error) {
             console.error("Create food failed:", error.response?.data || error.message);
+            alert(error.response?.data?.message || "Video uploads are disabled in Demo Mode to preserve server storage.");
+        } finally {
+            setLoading(false);
         }
     };
 
-    const isDisabled = useMemo(() => !name.trim() || !price || !videoFile, [ name, price, videoFile ]);
+    const isDisabled = useMemo(() => !name.trim() || !price || !videoFile || loading, [ name, price, videoFile, loading ]);
 
     return (
         <div className="create-food-page">
@@ -93,6 +96,21 @@ const CreateFood = () => {
                     <h1 className="create-food-title">Create Food</h1>
                     <p className="create-food-subtitle">Upload a short video, give it a name, set pricing, and add a description.</p>
                 </header>
+
+                {/* 🟢 DEMO MODE INFORMATION BANNER */}
+                <div style={{
+                    background: 'rgba(234, 179, 8, 0.15)',
+                    border: '1px solid rgba(234, 179, 8, 0.4)',
+                    borderRadius: '10px',
+                    padding: '12px 16px',
+                    marginBottom: '20px',
+                    color: '#eab308',
+                    fontSize: '13px',
+                    fontWeight: '600',
+                    lineHeight: '1.4'
+                }}>
+                    🔒 <strong>Demo Mode Active:</strong> New video uploads are disabled on the public demo to preserve free server storage and bandwidth.
+                </div>
 
                 <form className="create-food-form" onSubmit={onSubmit}>
                     <div className="field-group">
@@ -162,7 +180,6 @@ const CreateFood = () => {
                         />
                     </div>
 
-                    {/* NEW: Base Price & Category Row */}
                     <div style={{ display: 'flex', gap: '12px' }}>
                         <div className="field-group" style={{ flex: 1 }}>
                             <label htmlFor="foodPrice">Base Price (₹) *</label>
@@ -193,7 +210,6 @@ const CreateFood = () => {
                         </div>
                     </div>
 
-                    {/* NEW: Custom Portion Prices Section */}
                     <div className="field-group" style={{ background: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
                         <label style={{ fontWeight: 'bold', fontSize: '13px', display: 'block', marginBottom: '6px' }}>
                             Portion Prices (Optional)
@@ -236,7 +252,7 @@ const CreateFood = () => {
 
                     <div className="form-actions">
                         <button className="btn-primary" type="submit" disabled={isDisabled}>
-                            Save Food
+                            {loading ? "Processing..." : "Save Food"}
                         </button>
                     </div>
                 </form>
