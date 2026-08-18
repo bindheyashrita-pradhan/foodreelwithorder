@@ -21,9 +21,11 @@ const Navbar = () => {
     } catch (err) {
       console.error("Logout error:", err);
     } finally {
+      // 🟢 Clears all stored session items
       localStorage.removeItem('user');
       localStorage.removeItem('userType');
       localStorage.removeItem('token');
+      localStorage.removeItem('userToken');
       localStorage.removeItem('partnerToken');
       navigate('/user/login');
     }
@@ -42,21 +44,29 @@ const Navbar = () => {
               {userType === 'partner' ? 'Partner' : 'User'}
             </span>
             <span className="user-display-name">
-              {user.fullName || user.name || user.email}
+              {user.restaurantName || user.fullName || user.name || user.email}
             </span>
 
-            {/* Orders link for Customer */}
+            {/* Links for Customer */}
             {userType !== 'partner' && (
               <Link to="/my-orders" className="nav-link-btn">
                 🛍️ My Orders
               </Link>
             )}
 
-            {/* Orders link for Food Partner */}
+            {/* 🟢 Links for Food Partner */}
             {userType === 'partner' && (
-              <Link to="/food-partner/orders" className="nav-link-btn partner">
-                📦 Orders
-              </Link>
+              <>
+                {/* ➕ Direct button to create/upload new dish */}
+                <Link to="/create-food" className="nav-link-btn partner">
+                  ➕ Create Food
+                </Link>
+
+                {/* 📦 Link to partner incoming orders */}
+                <Link to="/food-partner/orders" className="nav-link-btn partner">
+                  📦 Orders
+                </Link>
+              </>
             )}
 
             <button onClick={handleLogout} className="nav-logout-btn">
