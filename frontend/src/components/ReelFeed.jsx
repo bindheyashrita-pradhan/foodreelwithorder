@@ -8,7 +8,6 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
   const videoRefs = useRef(new Map())
   const searchInputRef = useRef(null)
   const lastTapRef = useRef({ time: 0, itemId: null })
-  const likingLockRef = useRef({})
 
   const [isMuted, setIsMuted] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
@@ -17,31 +16,23 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
   const [activeCommentFoodId, setActiveCommentFoodId] = useState(null)
   const [activeOrderFood, setActiveOrderFood] = useState(null)
   
-  // Local state maps synced strictly with server DB
-  const [likedMap, setLikedMap] = useState({})
-  const [savedMap, setSavedMap] = useState({})
-  const [likesCountMap, setLikesCountMap] = useState({})
-  const [savesCountMap, setSavesCountMap] = useState({})
+  // Local state maps for instant feedback
+  const [likedSet, setLikedSet] = useState(new Set())
+  const [savedSet, setSavedSet] = useState(new Set())
+  const [likeOffsets, setLikeOffsets] = useState({})
+  const [saveOffsets, setSaveOffsets] = useState({})
   const [commentCounts, setCommentCounts] = useState({})
 
-  // 🟢 Sync initial liked/saved states from backend item data
+  // Initialize likedSet from backend item.isLiked
   useEffect(() => {
     if (Array.isArray(items) && items.length > 0) {
-      const initialLikedMap = {};
-      const initialSavedMap = {};
-      const initialLikesCount = {};
-
+      const initialLiked = new Set();
       items.forEach((item) => {
-        if (item._id) {
-          initialLikedMap[item._id] = !!item.isLiked;
-          initialSavedMap[item._id] = !!item.isSaved;
-          initialLikesCount[item._id] = item.likeCount ?? item.likesCount ?? item.likes ?? 0;
+        if (item.isLiked) {
+          initialLiked.add(item._id);
         }
       });
-
-      setLikedMap(initialLikedMap);
-      setSavedMap(initialSavedMap);
-      setLikesCountMap(initialLikesCount);
+      setLikedSet(initialLiked);
     }
   }, [items]);
 
@@ -107,52 +98,47 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
     return { token, hasUser: !!storedUser || !!token };
   }
 
-  // 🟢 SERVER-SYNCED LIKE TOGGLE (Strict single source of truth)
+  // STRICT 1-USER 1-LIKE TOGGLE
   const handleLikeToggle = async (item) => {
     const foodId = item._id;
-    if (likingLockRef.current[foodId]) return;
+    const { token, hasUser } = getAuthToken();
+
+    if (!hasUser) {
+      alert("Please log in as a user to like dishes!");
+      return;
+    }
+
+    const alreadyLiked = likedSet.has(foodId);
+
+    setLikedSet(prev => {
+      const next = new Set(prev);
+      if (alreadyLiked) next.delete(foodId);
+      else next.add(foodId);
+      return next;
+    });
+
+    setLikeOffsets(prev => ({
+      ...prev,
+      [foodId]: alreadyLiked ? (prev[foodId] || 0) - 1 : (prev[foodId] || 0) + 1
+    }));
 
     try {
-      likingLockRef.current[foodId] = true;
-      const { token, hasUser } = getAuthToken();
-
-      if (!hasUser) {
-        alert("Please log in as a user to like dishes!");
-        return;
-      }
-
       const headers = {};
       if (token) headers['Authorization'] = `Bearer ${token}`;
 
-      // Call Backend API
-      const res = await axios.post(
+      await axios.post(
         `${import.meta.env.VITE_API_URL}/api/food/like`,
         { foodId },
         { headers, withCredentials: true }
       );
 
-      console.log("Like API response:", res.data);
-
-      if (res.data?.success) {
-        // Set exact server response
-        const serverLiked = res.data.liked;
-        const serverCount = res.data.likeCount;
-
-        setLikedMap(prev => ({ ...prev, [foodId]: serverLiked }));
-        if (typeof serverCount === 'number') {
-          setLikesCountMap(prev => ({ ...prev, [foodId]: serverCount }));
-        }
-      }
-
       if (onLike) onLike(item);
     } catch (err) {
       console.error("Like toggle error:", err);
-    } finally {
-      setTimeout(() => { likingLockRef.current[foodId] = false; }, 300);
     }
   }
 
-  // 🟢 SERVER-SYNCED SAVE TOGGLE
+  // STRICT 1-USER 1-SAVE TOGGLE
   const handleSaveToggle = async (item) => {
     const foodId = item._id;
     const { token, hasUser } = getAuthToken();
@@ -162,10 +148,21 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
       return;
     }
 
-    try {
-      const isCurrentlySaved = !!savedMap[foodId];
-      setSavedMap(prev => ({ ...prev, [foodId]: !isCurrentlySaved }));
+    const alreadySaved = savedSet.has(foodId);
 
+    setSavedSet(prev => {
+      const next = new Set(prev);
+      if (alreadySaved) next.delete(foodId);
+      else next.add(foodId);
+      return next;
+    });
+
+    setSaveOffsets(prev => ({
+      ...prev,
+      [foodId]: alreadySaved ? (prev[foodId] || 0) - 1 : (prev[foodId] || 0) + 1
+    }));
+
+    try {
       const headers = {};
       if (token) headers['Authorization'] = `Bearer ${token}`;
 
@@ -178,7 +175,6 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
       if (onSave) onSave(item);
     } catch (err) {
       console.error("Save toggle error:", err);
-      setSavedMap(prev => ({ ...prev, [foodId]: !prev[foodId] }));
     }
   }
 
@@ -195,7 +191,7 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
       setHeartAnim({ id: item._id, x, y });
       setTimeout(() => setHeartAnim(null), 800);
 
-      if (!likedMap[item._id]) {
+      if (!likedSet.has(item._id)) {
         handleLikeToggle(item);
       }
       lastTapRef.current = { time: 0, itemId: null };
@@ -224,7 +220,7 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
   return (
     <div className="reels-page" style={{ width: '100vw', minHeight: '100vh', margin: 0, padding: 0, backgroundColor: '#000000', overflowX: 'hidden', position: 'relative' }}>
       
-      {/* STYLES */}
+      {/* 🟢 CSS FIX FOR MOBILE OVERLAP & CLEARANCE */}
       <style>{`
         html, body, #root {
           margin: 0 !important;
@@ -272,14 +268,15 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
           box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5) !important;
         }
 
+        /* 🟢 LIFTED RIGHT ACTION COLUMN ABOVE BOTTOM NAVBAR */
         .reel-actions {
           position: absolute !important;
-          right: 28px !important;
-          bottom: 96px !important;
+          right: 24px !important;
+          bottom: 125px !important; /* Lifted up to clear Home / Saved navbar */
           display: flex !important;
           flex-direction: column !important;
           align-items: center !important;
-          gap: 16px !important;
+          gap: 14px !important;
           z-index: 999 !important;
         }
 
@@ -305,8 +302,11 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
           text-shadow: 0 2px 4px rgba(0,0,0,0.8);
         }
 
+        /* 🟢 LIFTED LEFT DETAILS & "VISIT STORE" ABOVE BOTTOM NAVBAR */
         .reel-content {
-          padding-left: 28px !important;
+          padding-left: 24px !important;
+          padding-bottom: 115px !important; /* Lifted up to clear Home / Saved navbar */
+          max-width: calc(100vw - 90px) !important;
         }
       `}</style>
 
@@ -314,10 +314,10 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
       <div 
         style={{
           position: 'fixed',
-          top: '64px',
-          right: '28px',
+          top: '72px',
+          right: '20px',
           zIndex: 9999,
-          width: isSearchOpen ? 'calc(100vw - 56px)' : 'auto',
+          width: isSearchOpen ? 'calc(100vw - 40px)' : 'auto',
           maxWidth: isSearchOpen ? '500px' : '140px',
           left: isSearchOpen ? '50%' : 'auto',
           transform: isSearchOpen ? 'translateX(-50%)' : 'none',
@@ -428,11 +428,13 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
           const foodDishName = item?.name || item?.title || item?.foodName || 'Dish Item';
           const price = item?.price || item?.basePrice || item?.portions?.medium || item?.portions?.small || 0;
 
-          const isLiked = !!likedMap[item._id];
-          const displayLikes = likesCountMap[item._id] ?? (item.likeCount ?? item.likesCount ?? item.likes ?? 0);
+          const isLiked = likedSet.has(item._id);
+          const baseLikes = item.likeCount ?? item.likesCount ?? item.likes ?? 0;
+          const displayLikes = Math.max(0, baseLikes + (likeOffsets[item._id] || 0));
 
-          const isSaved = !!savedMap[item._id];
-          const displaySaves = savesCountMap[item._id] ?? (item.saveCount ?? item.savesCount ?? item.bookmarks ?? item.saves ?? 0);
+          const isSaved = savedSet.has(item._id);
+          const baseSaves = item.saveCount ?? item.savesCount ?? item.bookmarks ?? item.saves ?? 0;
+          const displaySaves = Math.max(0, baseSaves + (saveOffsets[item._id] || 0));
 
           const baseCommentCount = item.commentsCount ?? (Array.isArray(item.comments) ? item.comments.length : 0);
           const currentCommentCount = baseCommentCount + (commentCounts[item._id] || 0);
@@ -626,7 +628,7 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
                 </div>
 
                 {/* BOTTOM REEL CONTENT DETAILS */}
-                <div className="reel-content" style={{ pointerEvents: 'auto', paddingBottom: '70px' }}>
+                <div className="reel-content" style={{ pointerEvents: 'auto' }}>
                   
                   {/* RESTAURANT BRAND BADGE */}
                   <span style={{
