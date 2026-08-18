@@ -8,38 +8,9 @@ const upload = multer({
     storage: multer.memoryStorage(),
 });
 
-// =========================================================================
-// ⚙️ DEMO MODE SWITCH: Set to false whenever you want to unlock for personal use!
-// =========================================================================
-const DEMO_MODE = process.env.DEMO_MODE !== 'false'; // Defaults to true (Demo Mode Active)
-
-// 🔒 Demo Guard: Blocks video uploads in demo mode
-const blockUploadsInDemo = (req, res, next) => {
-    if (DEMO_MODE) {
-        return res.status(403).json({
-            success: false,
-            message: "🔒 Video uploads are disabled in public Demo Mode to preserve server storage."
-        });
-    }
-    next();
-};
-
-// 🔒 Demo Guard: Blocks adding comments in demo mode
-const blockCommentsInDemo = (req, res, next) => {
-    if (DEMO_MODE) {
-        return res.status(403).json({
-            success: false,
-            message: "🔒 Comments are disabled in public Demo Mode to prevent spam."
-        });
-    }
-    next();
-};
-// =========================================================================
-
-/* POST /api/food/ [Protected for partners + Restricted in Demo Mode] */
+/* POST /api/food/ [protected for partners] */
 router.post('/',
     authMiddleware.authFoodPartnerMiddleware,
-    blockUploadsInDemo, // 👈 Blocks uploading videos in Demo Mode
     upload.single("video"),
     foodController.createFood
 );
@@ -65,30 +36,23 @@ router.get('/save',
     foodController.getSaveFood
 );
 
-/* 🟢 COMMENT ROUTES */
-// POST /api/food/:foodId/comment (Add comment - blocked in Demo Mode)
+/* 🟢 NEW COMMENT ROUTES */
+// POST /api/food/:foodId/comment (Add a comment - requires user login)
 router.post('/:foodId/comment',
     authMiddleware.authUserMiddleware,
-    blockCommentsInDemo, // 👈 Blocks spam comments in Demo Mode
     foodController.addComment
 );
 
-// GET /api/food/:foodId/comments (Fetch comments - public view)
+// GET /api/food/:foodId/comments (Fetch all comments for a video)
 router.get('/:foodId/comments',
     foodController.getComments
 );
 
-// Edit comment
-router.put('/comment/:commentId', 
-    authMiddleware.authUserMiddleware, 
-    blockCommentsInDemo,
-    foodController.editComment
-);
 
-// Delete comment
-router.delete('/comment/:commentId', 
-    authMiddleware.authUserMiddleware, 
-    foodController.deleteComment
-);
+// Edit comment (requires authentication)
+router.put('/comment/:commentId', authMiddleware.authUserMiddleware, foodController.editComment);
+
+// Delete comment (requires authentication)
+router.delete('/comment/:commentId', authMiddleware.authUserMiddleware, foodController.deleteComment);
 
 module.exports = router;
