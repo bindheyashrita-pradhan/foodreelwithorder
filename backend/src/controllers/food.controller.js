@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const foodModel = require('../models/food.model');
 const storageService = require('../services/storage.service');
 const likeModel = require("../models/likes.model");
@@ -7,12 +8,15 @@ const userModel = require('../models/user.model');
 const jwt = require('jsonwebtoken');
 const { v4: uuid } = require("uuid");
 
-// Pre-load food partner model to prevent Mongoose population errors
+// 🟢 FIX: Register both foodPartner and foodpartner aliases so Mongoose .populate() never throws a Schema error
 try {
-  require('../models/foodpartner.model');
+  const partnerModel = require('../models/foodpartner.model');
+  if (!mongoose.models.foodPartner && mongoose.models.foodpartner) {
+    mongoose.model('foodPartner', partnerModel.schema);
+  }
 } catch (e) {}
 
-// 🟢 HELPER: Extract user ID safely from request header token or cookies
+// Helper: Safely extract user ID from request header token or cookies
 const getUserIdFromRequest = (req) => {
   try {
     let token = req.cookies?.token || req.cookies?.userToken;
@@ -33,7 +37,6 @@ async function createFood(req, res) {
   try {
     const fileUploadResult = await storageService.uploadFile(req.file.buffer, `${uuid()}.mp4`);
 
-    // Safe handling for price and portions passed via FormData
     const price = req.body.price ? Number(req.body.price) : 0;
     const category = req.body.category || 'Veg';
 
@@ -77,7 +80,7 @@ async function createFood(req, res) {
   }
 }
 
-// 🟢 2. GET ALL FOOD ITEMS (Includes isLiked & isSaved status for logged in user)
+// 🟢 2. GET ALL FOOD ITEMS (Includes isLiked & isSaved status for logged-in user)
 async function getFoodItems(req, res) {
   try {
     let rawFoodItems = [];
@@ -87,11 +90,10 @@ async function getFoodItems(req, res) {
         .find({})
         .populate('foodPartner', 'name restaurantName email');
     } catch (popError) {
-      console.warn("Populate failed in getFoodItems, running fallback query:", popError.message);
+      console.warn("Populate warning in getFoodItems, using fallback query:", popError.message);
       rawFoodItems = await foodModel.find({});
     }
 
-    // Extract user ID from token or cookies
     const userId = getUserIdFromRequest(req);
     let userLikedFoodIds = new Set();
     let userSavedFoodIds = new Set();
@@ -116,7 +118,6 @@ async function getFoodItems(req, res) {
       }
     }
 
-    // Attach comments count + isLiked + isSaved flags
     const foodItems = await Promise.all(
       rawFoodItems.map(async (item) => {
         try {
@@ -134,8 +135,8 @@ async function getFoodItems(req, res) {
           return {
             ...doc,
             commentsCount: doc.commentsCount || commentsCount || 0,
-            isLiked: userLikedFoodIds.has(foodIdStr), // 🟢 Persists liked heart state on refresh
-            isSaved: userSavedFoodIds.has(foodIdStr)  // 🟢 Persists bookmark state on refresh
+            isLiked: userLikedFoodIds.has(foodIdStr),
+            isSaved: userSavedFoodIds.has(foodIdStr)
           };
         } catch (e) {
           return item.toObject ? item.toObject() : item;
@@ -155,7 +156,7 @@ async function getFoodItems(req, res) {
   }
 }
 
-// 🟢 3. LIKE FOOD (Strict Database Toggling & Count Returns)
+// 🟢 3. LIKE FOOD
 async function likeFood(req, res) {
   try {
     const { foodId } = req.body;
@@ -175,7 +176,6 @@ async function likeFood(req, res) {
     });
 
     if (isAlreadyLiked) {
-      // User already liked -> Unlike it
       await likeModel.deleteOne({ _id: isAlreadyLiked._id });
 
       const updatedFood = await foodModel.findByIdAndUpdate(
@@ -194,7 +194,6 @@ async function likeFood(req, res) {
       });
     }
 
-    // User hasn't liked -> Like it
     await likeModel.create({
       user: user._id,
       food: foodId
@@ -335,7 +334,6 @@ async function addComment(req, res) {
         .findById(newComment._id)
         .populate('user', 'fullName name email');
     } catch (popError) {
-      console.warn("Population fallback:", popError.message);
       populatedComment = newComment;
     }
 
@@ -362,7 +360,6 @@ async function getComments(req, res) {
         .populate('user', 'fullName name email')
         .sort({ createdAt: -1 });
     } catch (popError) {
-      console.warn("Population fallback on fetch:", popError.message);
       comments = await commentModel
         .find({ food: foodId })
         .sort({ createdAt: -1 });
