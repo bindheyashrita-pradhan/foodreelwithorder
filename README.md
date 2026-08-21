@@ -24,7 +24,7 @@ Full-screen auto-playing video reels with double-tap to like (`❤️`), bookmar
 
 | 🎬 Reel Feed & Audio Controls | 🔍 Instant Dish Search Filter | ❤️ Double-Tap Like & Bookmark |
 | :---: | :---: | :---: |
-| <img src="C:\Users\RAJ\Desktop\foodreelwithorder\Photos\1.png" alt="Reel Feed" width="260"/> | <img src="screenshots/search-filter.png" alt="Search Filter" width="260"/> | <img src="screenshots/likes-bookmarks.png" alt="Likes & Bookmarks" width="260"/> |
+| <img src="Photos/1.png" alt="Reel Feed" width="260"/> | <img src="screenshots/search-filter.png" alt="Search Filter" width="260"/> | <img src="screenshots/likes-bookmarks.png" alt="Likes & Bookmarks" width="260"/> |
 
 ---
 
