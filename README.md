@@ -128,7 +128,6 @@ Dedicated sign-in and registration workflows tailored for both **Customers** and
 
 ## 📂 Project Structure
 
-## 📂 Project Structure
 
 ```text
 foodreelwithorder/
