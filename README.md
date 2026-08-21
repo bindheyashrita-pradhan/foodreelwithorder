@@ -128,6 +128,9 @@ Dedicated sign-in and registration workflows tailored for both **Customers** and
 
 ## 📂 Project Structure
 
+## 📂 Project Structure
+
+```text
 foodreelwithorder/
 ├── backend/
 │   ├── src/
@@ -203,6 +206,7 @@ foodreelwithorder/
 ├── Photos/                                  # UI Showcase Screenshots (1.png - 16.png)
 ├── LICENSE                                  # MIT License
 └── README.md                                # Project Documentation
+```
 
 
 
