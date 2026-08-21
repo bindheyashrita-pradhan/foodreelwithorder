@@ -10,6 +10,8 @@ An interactive full-stack food discovery platform inspired by **Instagram/TikTok
 [![Express.js](https://img.shields.io/badge/Express.js-000000?style=for-the-badge&logo=express&logoColor=white)](https://expressjs.com/)
 [![MongoDB](https://img.shields.io/badge/MongoDB_Atlas-4EA94B?style=for-the-badge&logo=mongodb&logoColor=white)](https://www.mongodb.com/)
 [![Supabase](https://img.shields.io/badge/Supabase_Storage-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white)](https://supabase.com/)
+ [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](LICENSE)
+
 
 </div>
 
@@ -167,3 +169,19 @@ foodreelwithorder/
 │   └── package.json
 ├── screenshots/                         # UI Showcase images
 └── README.md
+
+
+
+
+
+---
+
+## 📄 License
+
+This project is licensed under the [MIT License](LICENSE) — feel free to use, modify, and build upon this code for personal or commercial projects.
+
+Copyright (c) 2026 Bindheyashrita Pradhan
+
+
+
+
