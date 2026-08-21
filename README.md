@@ -128,48 +128,81 @@ Dedicated sign-in and registration workflows tailored for both **Customers** and
 
 ## 📂 Project Structure
 
-```text
 foodreelwithorder/
 ├── backend/
 │   ├── src/
 │   │   ├── controllers/
-│   │   │   ├── auth.controller.js       # User & Partner Authentication
-│   │   │   └── food.controller.js       # Reels, Likes, Saves & Comments
+│   │   │   ├── auth.controller.js           # Handles User & Partner Authentication
+│   │   │   ├── food-partner.controller.js   # Food Partner Profile & Analytics
+│   │   │   └── food.controller.js           # Video Reels, Likes, Saves & Comments Logic
+│   │   ├── db/
+│   │   │   └── db.js                        # MongoDB Atlas Connection
 │   │   ├── middlewares/
-│   │   │   └── auth.middleware.js       # JWT Verification & Role Checks
+│   │   │   └── auth.middleware.js           # JWT Verification & Role-Based Auth Guards
 │   │   ├── models/
-│   │   │   ├── user.model.js
-│   │   │   ├── foodpartner.model.js
-│   │   │   ├── food.model.js            # Video dishes & portion prices
-│   │   │   ├── order.model.js           # Customer orders & statuses
-│   │   │   ├── likes.model.js
-│   │   │   └── comment.model.js
+│   │   │   ├── comment.model.js             # User Reviews & Comments Schema
+│   │   │   ├── food.model.js                # Video Dishes & Portion Prices (Small/Med/Large)
+│   │   │   ├── foodpartner.model.js         # Restaurant Partner Schema (Name, Address, Phone)
+│   │   │   ├── likes.model.js               # Likes Tracker Schema
+│   │   │   ├── order.model.js               # Customer Orders & Status Schema
+│   │   │   ├── save.model.js                # Saved/Bookmarked Dishes Schema
+│   │   │   └── user.model.js                # Customer Account Schema
 │   │   ├── routes/
-│   │   │   ├── auth.routes.js
-│   │   │   ├── food.routes.js
-│   │   │   └── order.routes.js
+│   │   │   ├── auth.routes.js               # /api/auth Endpoints (Login/Register)
+│   │   │   ├── food-partner.routes.js       # /api/food-partner Endpoints (Profile/Details)
+│   │   │   ├── food.routes.js               # /api/food Endpoints (Reels Feed, Like, Save, Comment)
+│   │   │   └── order.routes.js              # /api/orders Endpoints (Create, Partner/User Orders, Status)
 │   │   ├── services/
-│   │   │   └── storage.service.js       # Supabase Cloud Storage
-│   │   └── server.js
-│   └── package.json
+│   │   │   └── storage.service.js           # Supabase Cloud Storage (Public Video CDN)
+│   │   └── app.js                           # Express App Configuration & Middlewares
+│   ├── .env                                 # Backend Environment Variables
+│   ├── .env.example                         # Environment Variables Template
+│   ├── package-lock.json
+│   ├── package.json
+│   └── server.js                            # Server Entrypoint (Listens on Port)
 │
 ├── frontend/
+│   ├── public/                              # Static Icons & Web Assets
 │   ├── src/
+│   │   ├── assets/                          # App Media & Assets
 │   │   ├── components/
-│   │   │   ├── Navbar.jsx               # Dynamic navigation based on role
-│   │   │   ├── ReelFeed.jsx             # Video player, search & interactions
-│   │   │   ├── OrderModal.jsx           # Dynamic portion sizing & stepper
-│   │   │   ├── CommentModal.jsx         # Real-time reviews
-│   │   │   └── BottomNav.jsx
+│   │   │   ├── BottomNav.jsx                # Mobile Bottom Navigation Bar (Home & Saved)
+│   │   │   ├── CommentModal.jsx             # Slide-Up Comments & Reviews Modal
+│   │   │   ├── Navbar.jsx                   # Top Header Navbar with Dynamic Role Actions
+│   │   │   ├── OrderModal.jsx               # Custom Portion Sizing & Quantity Stepper Modal
+│   │   │   └── ReelFeed.jsx                 # Full-Screen Video Player with Search & Micro-Interactions
 │   │   ├── pages/
-│   │   │   ├── auth/                    # User & Partner Login/Register
-│   │   │   ├── food-partner/            # CreateFood, PartnerOrders, Profile
-│   │   │   └── general/                 # Home, MyOrders, Saved
-│   │   └── App.jsx
-│   └── package.json
-├── screenshots/                         # UI Showcase images
-└── README.md
-
+│   │   │   ├── auth/
+│   │   │   │   ├── ChooseRegister.jsx       # Role Selection (Customer vs Restaurant Partner)
+│   │   │   │   ├── FoodPartnerLogin.jsx     # Food Partner Sign-In
+│   │   │   │   ├── FoodPartnerRegister.jsx  # Food Partner Registration
+│   │   │   │   ├── UserLogin.jsx            # Customer Sign-In
+│   │   │   │   └── UserRegister.jsx         # Customer Registration
+│   │   │   ├── food-partner/
+│   │   │   │   ├── CreateFood.jsx           # Dish Creation with Dynamic Portion Pricing
+│   │   │   │   ├── PartnerOrders.jsx        # Partner Dashboard for Incoming Customer Orders
+│   │   │   │   └── Profile.jsx              # Restaurant Profile & Menu Management
+│   │   │   └── general/
+│   │   │       ├── Home.jsx                 # Home Video Reels Feed
+│   │   │       ├── MyOrders.jsx             # Customer Order Tracking & History
+│   │   │       └── Saved.jsx                # Bookmarked Video Dishes Collection
+│   │   ├── routes/
+│   │   │   └── AppRoutes.jsx                # React Router v6 Configuration
+│   │   ├── styles/                          # Component & Page Stylesheets
+│   │   ├── App.css                          # Global Resets & Keyframe Animations
+│   │   ├── App.jsx                          # Root Application Component
+│   │   └── main.jsx                         # React 18 DOM Entrypoint
+│   ├── .env                                 # Frontend Environment Variables
+│   ├── .gitignore
+│   ├── eslint.config.js                     # ESLint Configuration
+│   ├── index.html                           # Single Page HTML Template
+│   ├── package-lock.json
+│   ├── package.json
+│   └── vite.config.js                       # Vite Bundler Configuration
+│
+├── Photos/                                  # UI Showcase Screenshots (1.png - 16.png)
+├── LICENSE                                  # MIT License
+└── README.md                                # Project Documentation
 
 
 
