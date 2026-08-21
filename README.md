@@ -15,52 +15,93 @@ An interactive full-stack food discovery platform inspired by **Instagram/TikTok
 
 ---
 
-##  App Showcase & Feature Gallery
+## 📸 App Showcase & Feature Gallery
 
 ---
 
-###  1. Video Reels Feed & Instant Dish Search
-Full-screen auto-playing video reels with double-tap to like (`❤️`), bookmarking (`🔖`), sound toggle, restaurant brand badge, glowing price tags, and a floating glassmorphic search bar.
+### 🎥 1. Video Reels Feed & Instant Search
+Full-screen auto-playing reels with double-tap like (`❤️`), bookmarking (`🔖`), sound toggle, restaurant brand badge, glowing price tags, and a floating glassmorphic search bar.
 
-| 🎬 Reel Feed & Audio Controls | 🔍 Instant Dish Search Filter | ❤️ Double-Tap Like & Bookmark |
-| :---: | :---: | :---: |
-| <img src="Photos/1.png" alt="Reel Feed" width="260"/> | <img src="screenshots/search-filter.png" alt="Search Filter" width="260"/> | <img src="screenshots/likes-bookmarks.png" alt="Likes & Bookmarks" width="260"/> |
+<div align="center">
+
+| 🎬 Full-Screen Video Reel Feed | 🔍 Instant Dish Search Filter |
+| :---: | :---: |
+| <img src="screenshots/reel-feed.png" alt="Reel Feed" width="400"/> | <img src="screenshots/search-filter.png" alt="Search Filter" width="400"/> |
+
+| ❤️ Double-Tap Like & Bookmark | 🏪 Restaurant Profile View |
+| :---: | :---: |
+| <img src="screenshots/likes-bookmarks.png" alt="Likes and Bookmarks" width="400"/> | <img src="screenshots/partner-profile.png" alt="Partner Profile" width="400"/> |
+
+</div>
 
 ---
 
-###  2. Smart Ordering & Dynamic Portion Customization
+### 🛍️ 2. Smart Ordering & Dynamic Portion Customization
 Customers customize portion sizes (**Small**, **Medium**, **Large**, **Full**) with real-time price calculation and interactive `+ / -` quantity stepper controls.
 
-| 🥟 Small Portion Order | 🥞 Custom Quantity Stepper | 📋 Customer "My Orders" Dashboard |
-| :---: | :---: | :---: |
-| <img src="screenshots/order-modal-small.png" alt="Small Portion Order" width="260"/> | <img src="screenshots/order-modal-stepper.png" alt="Quantity Stepper" width="260"/> | <img src="screenshots/my-orders.png" alt="My Orders" width="260"/> |
+<div align="center">
+
+| 🥞 Custom Quantity Stepper | 🥟 Small Portion Size Order |
+| :---: | :---: |
+| <img src="screenshots/order-modal-stepper.png" alt="Order Modal Stepper" width="400"/> | <img src="screenshots/order-modal-small.png" alt="Order Modal Small" width="400"/> |
+
+</div>
 
 ---
 
-### 💬 3. Interactive Comments & Social Community
-Slide-up comments sheet allowing customers to share reviews, read feedback on dishes, and edit or delete their comments.
+### 📋 3. Customer & Partner Order Management
+Real-time tracking of order statuses (**Pending** ➡️ **Accepted** ➡️ **Completed** / **Rejected**) with instant delete/cancellation controls.
+
+<div align="center">
+
+| 📋 Customer "My Orders" Dashboard | 📦 Incoming Restaurant Orders |
+| :---: | :---: |
+| <img src="screenshots/my-orders.png" alt="My Orders" width="400"/> | <img src="screenshots/partner-orders.png" alt="Partner Orders" width="400"/> |
+
+</div>
+
+---
+
+### 💬 4. Interactive Community & Comments
+Slide-up reviews sheet allowing customers to share reviews, read feedback on dishes, and manage comments.
+
+<div align="center">
 
 | 💬 Community Comments List | ✍️ Empty Comments State |
 | :---: | :---: |
-| <img src="screenshots/comments-active.png" alt="Comments List" width="260"/> | <img src="screenshots/comments-empty.png" alt="Empty Comments" width="260"/> |
+| <img src="screenshots/comments-active.png" alt="Comments Active" width="400"/> | <img src="screenshots/comments-empty.png" alt="Comments Empty" width="400"/> |
+
+</div>
 
 ---
 
-### 🏪 4. Restaurant Food Partner Dashboard
-Restaurant partners can upload dishes with custom portion pricing directly to cloud storage, track customer metrics, view restaurant profiles, and manage live incoming customer orders.
+### 🏪 5. Food Partner Portal & Dish Creation
+Restaurant partners upload food video reels directly to cloud storage and configure custom portion pricing.
 
-| ➕ Create Food & Portion Pricing | 📦 Incoming Customer Orders | 🏪 Partner Restaurant Profile |
-| :---: | :---: | :---: |
-| <img src="screenshots/create-food.png" alt="Create Food" width="260"/> | <img src="screenshots/partner-orders.png" alt="Partner Orders" width="260"/> | <img src="screenshots/partner-profile.png" alt="Partner Profile" width="260"/> |
+<div align="center">
+
+| ➕ Create Food & Portion Pricing | 📹 Video Upload Preview |
+| :---: | :---: |
+| <img src="screenshots/create-food.png" alt="Create Food" width="400"/> | <img src="screenshots/create-food-empty.png" alt="Create Food Empty" width="400"/> |
+
+</div>
 
 ---
 
-### 🔐 5. Dual-Role Authentication
+### 🔐 6. Authentication & User Onboarding
 Dedicated sign-in and registration workflows tailored for both **Customers** and **Food Partners**.
 
-| 👤 Customer Login | 📝 Customer Registration | 🏪 Partner Login | 📝 Partner Registration |
-| :---: | :---: | :---: | :---: |
-| <img src="screenshots/user-login.png" alt="User Login" width="220"/> | <img src="screenshots/user-register.png" alt="User Register" width="220"/> | <img src="screenshots/partner-login.png" alt="Partner Login" width="220"/> | <img src="screenshots/partner-register.png" alt="Partner Register" width="220"/> |
+<div align="center">
+
+| 👤 Customer Login | 📝 Customer Registration |
+| :---: | :---: |
+| <img src="screenshots/user-login.png" alt="User Login" width="380"/> | <img src="screenshots/user-register.png" alt="User Register" width="380"/> |
+
+| 🏪 Partner Login | 📝 Partner Registration |
+| :---: | :---: |
+| <img src="screenshots/partner-login.png" alt="Partner Login" width="380"/> | <img src="screenshots/partner-register.png" alt="Partner Register" width="380"/> |
+
+</div>
 
 ---
 
